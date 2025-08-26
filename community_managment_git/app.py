@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Gated Community Management System
+Gated Community Management System to Manage Houses
 A Flask-based web application for managing maintenance fees, water charges, and communication
 """
 
