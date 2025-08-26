@@ -1,0 +1,463 @@
+<!-- templates/view_house.html -->
+{% extends "base.html" %}
+
+{% block title %}View House {{ house.house_number }} - Community Management{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item">
+    <a href="{{ url_for('houses') }}"><i class="fas fa-home"></i> Houses</a>
+</li>
+<li class="breadcrumb-item active" aria-current="page">View {{ house.house_number }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="fas fa-home"></i> House {{ house.house_number }}</h1>
+        <p>Complete house information and activity summary</p>
+    </div>
+    <div>
+        <button class="btn btn-outline-info me-2" onclick="window.print()" data-bs-toggle="tooltip" title="Print house details">
+            <i class="fas fa-print"></i> Print
+        </button>
+        {% if session.user_role == 'admin' %}
+        <a href="{{ url_for('edit_house', house_id=house.id) }}" class="btn btn-warning me-2">
+            <i class="fas fa-edit"></i> Edit House
+        </a>
+        {% endif %}
+        <a href="{{ url_for('houses') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Houses
+        </a>
+    </div>
+</div>
+
+<!-- House Information Cards -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card border-primary h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-home"></i> House Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <p><strong>House Number:</strong> {{ house.house_number }}</p>
+                        <p><strong>Owner Name:</strong> {{ house.owner_name }}</p>
+                        <p><strong>Contact Number:</strong> 
+                            {% if house.contact_number %}
+                                <span onclick="copyToClipboard('{{ house.contact_number }}', 'Contact copied!')" 
+                                      style="cursor: pointer;" data-bs-toggle="tooltip" title="Click to copy">
+                                    {{ house.contact_number }} <i class="fas fa-copy text-muted"></i>
+                                </span>
+                            {% else %}
+                                <span class="text-muted">Not provided</span>
+                            {% endif %}
+                        </p>
+                        <p><strong>Email:</strong> 
+                            {% if house.email %}
+                                <a href="mailto:{{ house.email }}" data-bs-toggle="tooltip" title="Send email">
+                                    {{ house.email }} <i class="fas fa-envelope text-muted"></i>
+                                </a>
+                            {% else %}
+                                <span class="text-muted">Not provided</span>
+                            {% endif %}
+                        </p>
+                        <p><strong>Status:</strong> 
+                            <span class="badge bg-{{ 'success' if house.status == 'occupied' else 'secondary' }} fs-6">
+                                <i class="fas fa-{{ 'check' if house.status == 'occupied' else 'times' }}"></i>
+                                {{ house.status.title() }}
+                            </span>
+                        </p>
+                        <p><strong>Address:</strong> {{ house.address or 'Not provided' }}</p>
+                        <p><strong>Registered:</strong> {{ house.created_at }}</p>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <i class="fas fa-home fa-4x text-primary opacity-25"></i>
+                        <div class="mt-2">
+                            <small class="text-muted">House ID: {{ house.id }}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card border-success h-100">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-user"></i> Assigned User</h5>
+            </div>
+            <div class="card-body">
+                {% if assigned_user %}
+                    <div class="row">
+                        <div class="col-md-8">
+                            <p><strong>Name:</strong> {{ assigned_user.first_name }} {{ assigned_user.last_name }}</p>
+                            <p><strong>Email:</strong> 
+                                <span onclick="copyToClipboard('{{ assigned_user.email }}', 'Email copied!')" 
+                                      style="cursor: pointer;" data-bs-toggle="tooltip" title="Click to copy">
+                                    {{ assigned_user.email }} <i class="fas fa-copy text-muted"></i>
+                                </span>
+                            </p>
+                            <p><strong>Phone:</strong> {{ assigned_user.phone_number or 'Not provided' }}</p>
+                            <p><strong>Role:</strong> 
+                                <span class="badge bg-{{ 'danger' if assigned_user.role == 'admin' else 'primary' }}">
+                                    {{ assigned_user.role.title() }}
+                                </span>
+                            </p>
+                            <p><strong>Last Login:</strong> {{ assigned_user.last_login or 'Never' }}</p>
+                            <p><strong>Member Since:</strong> {{ assigned_user.created_at }}</p>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <i class="fas fa-user-circle fa-4x text-success"></i>
+                            <div class="mt-2">
+                                <span class="badge bg-success">Active User</span>
+                            </div>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted">
+                        <i class="fas fa-user-times fa-4x mb-3"></i>
+                        <h6>No User Assigned</h6>
+                        <p>No user account is linked to this house yet.</p>
+                        {% if session.user_role == 'admin' %}
+                        <a href="{{ url_for('add_user') }}" class="btn btn-outline-success btn-sm">
+                            <i class="fas fa-plus"></i> Create User Account
+                        </a>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Statistics -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card border-info h-100">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-file-invoice-dollar"></i> Bills Summary</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6 mb-3">
+                        <h4 class="text-primary">{{ bills_summary.total_bills or 0 }}</h4>
+                        <small>Total Bills</small>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <h4 class="text-success">{{ bills_summary.paid_bills or 0 }}</h4>
+                        <small>Paid</small>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <h4 class="text-warning">{{ bills_summary.pending_bills or 0 }}</h4>
+                        <small>Pending</small>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <h4 class="text-danger">{{ bills_summary.overdue_bills or 0 }}</h4>
+                        <small>Overdue</small>
+                    </div>
+                </div>
+                <hr>
+                <div class="row">
+                    <div class="col-12 mb-2">
+                        <strong>Total Due:</strong> 
+                        <span class="float-end">₹{{ "%.2f"|format(bills_summary.total_due or 0) }}</span>
+                    </div>
+                    <div class="col-12 mb-2">
+                        <strong>Total Paid:</strong> 
+                        <span class="float-end text-success">₹{{ "%.2f"|format(bills_summary.total_paid or 0) }}</span>
+                    </div>
+                    <div class="col-12">
+                        <strong>Outstanding:</strong> 
+                        <span class="float-end text-{{ 'danger' if (bills_summary.total_outstanding or 0) > 0 else 'success' }}">
+                            ₹{{ "%.2f"|format(bills_summary.total_outstanding or 0) }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card border-warning h-100">
+            <div class="card-header bg-warning text-white">
+                <h5 class="mb-0"><i class="fas fa-credit-card"></i> Payments Summary</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center mb-3">
+                    <div class="col-6">
+                        <h4 class="text-primary">{{ payments_summary.total_payments or 0 }}</h4>
+                        <small>Total Payments</small>
+                    </div>
+                    <div class="col-6">
+                        <h4 class="text-success">₹{{ "%.0f"|format(payments_summary.total_amount_paid or 0) }}</h4>
+                        <small>Amount Paid</small>
+                    </div>
+                </div>
+                
+                <div class="mb-2">
+                    <strong>First Payment:</strong> 
+                    <span class="float-end">{{ payments_summary.first_payment_date or 'No payments yet' }}</span>
+                </div>
+                <div class="mb-2">
+                    <strong>Last Payment:</strong> 
+                    <span class="float-end">{{ payments_summary.last_payment_date or 'No payments yet' }}</span>
+                </div>
+                
+                {% if payments_summary.total_payments > 0 %}
+                <div class="mt-3 text-center">
+                    <span class="badge bg-success">
+                        <i class="fas fa-check-circle"></i> Payment History Available
+                    </span>
+                </div>
+                {% else %}
+                <div class="mt-3 text-center">
+                    <span class="badge bg-secondary">
+                        <i class="fas fa-info-circle"></i> No Payment History
+                    </span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card border-secondary h-100">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="fas fa-tint"></i> Water Usage</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center mb-3">
+                    <div class="col-6">
+                        <h4 class="text-primary">{{ meter_readings_summary.total_readings or 0 }}</h4>
+                        <small>Total Readings</small>
+                    </div>
+                    <div class="col-6">
+                        <h4 class="text-info">{{ "%.0f"|format(meter_readings_summary.total_consumption or 0) }}</h4>
+                        <small>Total Consumption</small>
+                    </div>
+                </div>
+                
+                <div class="mb-2">
+                    <strong>Average Consumption:</strong> 
+                    <span class="float-end">{{ "%.1f"|format(meter_readings_summary.avg_consumption or 0) }} units</span>
+                </div>
+                <div class="mb-2">
+                    <strong>Last Reading Date:</strong> 
+                    <span class="float-end">{{ meter_readings_summary.last_reading_date or 'No readings yet' }}</span>
+                </div>
+                <div class="mb-2">
+                    <strong>Current Reading:</strong> 
+                    <span class="float-end">{{ "%.2f"|format(meter_readings_summary.last_reading_value or 0) }}</span>
+                </div>
+                
+                {% if meter_readings_summary.total_readings > 0 %}
+                <div class="mt-3 text-center">
+                    {% set avg_consumption = meter_readings_summary.avg_consumption or 0 %}
+                    <span class="badge bg-{{ 'danger' if avg_consumption > 30 else 'warning' if avg_consumption > 15 else 'success' }}">
+                        <i class="fas fa-{{ 'exclamation-triangle' if avg_consumption > 30 else 'tint' if avg_consumption > 15 else 'leaf' }}"></i>
+                        {{ 'High Usage' if avg_consumption > 30 else 'Normal Usage' if avg_consumption > 15 else 'Low Usage' }}
+                    </span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity Section -->
+{% if recent_bills or recent_payments or recent_readings %}
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-history"></i> Recent Activity</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <!-- Recent Bills -->
+            {% if recent_bills %}
+            <div class="col-md-4">
+                <h6 class="text-primary"><i class="fas fa-file-invoice"></i> Recent Bills</h6>
+                <div style="max-height: 300px; overflow-y: auto;">
+                    {% for bill in recent_bills %}
+                    <div class="card mb-2">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <span class="badge bg-{{ 'success' if bill.bill_type == 'maintenance' else 'info' }} mb-1">
+                                        {{ bill.bill_type.title() }}
+                                    </span>
+                                    <div><strong>{{ bill.billing_cycle }}</strong></div>
+                                    <small class="text-muted">
+                                        <i class="fas fa-calendar"></i> {{ bill.generation_date }}
+                                        <br><i class="fas fa-clock"></i> Due: {{ bill.due_date }}
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    <div><strong>₹{{ "%.2f"|format(bill.current_balance) }}</strong></div>
+                                    <span class="badge bg-{{ 'success' if bill.status == 'paid' else 'danger' if bill.status == 'overdue' else 'warning' }}">
+                                        {{ bill.status.replace('_', ' ').title() }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Recent Payments -->
+            {% if recent_payments %}
+            <div class="col-md-4">
+                <h6 class="text-success"><i class="fas fa-credit-card"></i> Recent Payments</h6>
+                <div style="max-height: 300px; overflow-y: auto;">
+                    {% for payment in recent_payments %}
+                    <div class="card mb-2">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <div><strong>₹{{ "%.2f"|format(payment.amount_paid) }}</strong></div>
+                                    <small class="text-muted">
+                                        <i class="fas fa-calendar"></i> {{ payment.payment_date }}
+                                        <br><i class="fas fa-credit-card"></i> {{ payment.payment_method or 'N/A' }}
+                                        {% if payment.transaction_id %}
+                                        <br><i class="fas fa-hashtag"></i> {{ payment.transaction_id }}
+                                        {% endif %}
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-{{ 'success' if payment.bill_type == 'maintenance' else 'info' }}">
+                                        {{ payment.bill_type.title() if payment.bill_type else 'N/A' }}
+                                    </span>
+                                    <div class="mt-1">
+                                        <small>{{ payment.billing_cycle }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Recent Readings -->
+            {% if recent_readings %}
+            <div class="col-md-4">
+                <h6 class="text-info"><i class="fas fa-tint"></i> Recent Readings</h6>
+                <div style="max-height: 300px; overflow-y: auto;">
+                    {% for reading in recent_readings %}
+                    <div class="card mb-2">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <div><strong>{{ "%.2f"|format(reading.current_reading) }}</strong> <small>units</small></div>
+                                    <small class="text-muted">
+                                        <i class="fas fa-calendar"></i> {{ reading.reading_date }}
+                                        <br><i class="fas fa-arrow-up"></i> From: {{ "%.2f"|format(reading.previous_reading or 0) }}
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    <div>
+                                        <span class="badge bg-{{ 'success' if (reading.consumption or 0) <= 20 else 'warning' if (reading.consumption or 0) <= 40 else 'danger' }}">
+                                            {{ "%.2f"|format(reading.consumption or 0) }} units
+                                        </span>
+                                    </div>
+                                    <div class="mt-1">
+                                        <span class="badge bg-{{ 'success' if reading.status == 'verified' else 'warning' }}">
+                                            {{ reading.status.title() }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body">
+        <div class="alert alert-info text-center">
+            <i class="fas fa-info-circle fa-2x mb-2"></i>
+            <h5>No Activity Yet</h5>
+            <p class="mb-0">This house doesn't have any bills, payments, or meter readings yet. Activity will appear here once transactions are recorded.</p>
+            {% if session.user_role == 'admin' %}
+            <div class="mt-3">
+                <a href="{{ url_for('generate_bills') }}" class="btn btn-primary me-2">
+                    <i class="fas fa-file-invoice"></i> Generate Bills
+                </a>
+                <a href="{{ url_for('add_meter_reading') }}" class="btn btn-info">
+                    <i class="fas fa-tint"></i> Add Meter Reading
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Print specific sections
+function printHouseDetails() {
+    window.print();
+}
+
+// Export house details (simple version)
+function exportHouseDetails() {
+    const houseNumber = "{{ house.house_number }}";
+    const timestamp = new Date().toISOString().split('T')[0];
+    
+    // Create a simple CSV export of house summary
+    const csvContent = [
+        ['Field', 'Value'],
+        ['House Number', '{{ house.house_number }}'],
+        ['Owner Name', '{{ house.owner_name }}'],
+        ['Contact', '{{ house.contact_number or "N/A" }}'],
+        ['Email', '{{ house.email or "N/A" }}'],
+        ['Status', '{{ house.status }}'],
+        ['Total Bills', '{{ bills_summary.total_bills or 0 }}'],
+        ['Outstanding Amount', '₹{{ "%.2f"|format(bills_summary.total_outstanding or 0) }}'],
+        ['Total Payments', '{{ payments_summary.total_payments or 0 }}'],
+        ['Total Paid', '₹{{ "%.2f"|format(payments_summary.total_amount_paid or 0) }}'],
+        ['Meter Readings', '{{ meter_readings_summary.total_readings or 0 }}'],
+        ['Total Consumption', '{{ "%.2f"|format(meter_readings_summary.total_consumption or 0) }} units']
+    ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+    
+    // Download CSV
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `house_${houseNumber}_details_${timestamp}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: 'House details exported successfully!',
+        showConfirmButton: false,
+        timer: 3000
+    });
+}
+
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Bootstrap tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %}

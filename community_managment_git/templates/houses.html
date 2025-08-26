@@ -141,11 +141,11 @@
                                    data-bs-toggle="tooltip" title="Edit house details">
                                     <i class="fas fa-edit"></i>
                                 </a>
-                                <button type="button" class="btn btn-sm btn-outline-info" 
-                                        onclick="viewHouseDetails({{ house.id }})"
-                                        data-bs-toggle="tooltip" title="View house details">
+                                <a href="{{ url_for('view_house', house_id=house.id) }}" 
+                                    class="btn btn-sm btn-outline-info"
+                                    data-bs-toggle="tooltip" title="View house details">
                                     <i class="fas fa-eye"></i>
-                                </button>
+                                </a>
                                 <button type="button" class="btn btn-sm btn-outline-danger" 
                                         onclick="deleteHouse({{ house.id }}, '{{ house.house_number }}')"
                                         data-bs-toggle="tooltip" title="Delete house">
@@ -179,23 +179,7 @@
     </div>
 </div>
 
-<!-- House Details Modal -->
-<div class="modal fade" id="houseDetailsModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-home"></i> House Details</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body" id="houseDetailsContent">
-                <!-- House details will be loaded here -->
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -291,34 +275,6 @@ function sortTable(columnIndex) {
     if (currentHeader) {
         currentHeader.className = `fas fa-sort-${newDirection === 'asc' ? 'up' : 'down'} text-primary`;
     }
-}
-
-// View house details
-function viewHouseDetails(houseId) {
-    // In a real implementation, this would fetch from the server
-    // For now, we'll use mock data
-    document.getElementById('houseDetailsContent').innerHTML = `
-        <div class="row">
-            <div class="col-md-6">
-                <h6><i class="fas fa-info-circle"></i> Basic Information</h6>
-                <p><strong>House ID:</strong> ${houseId}</p>
-                <p><strong>Registration Date:</strong> ${formatDate(new Date())}</p>
-                <p><strong>Last Updated:</strong> ${formatDate(new Date())}</p>
-            </div>
-            <div class="col-md-6">
-                <h6><i class="fas fa-chart-line"></i> Quick Stats</h6>
-                <p><strong>Total Bills:</strong> <span class="badge bg-info">0</span></p>
-                <p><strong>Outstanding Amount:</strong> <span class="badge bg-warning">₹0.00</span></p>
-                <p><strong>Last Payment:</strong> <span class="text-muted">No payments yet</span></p>
-            </div>
-        </div>
-        <hr>
-        <div class="alert alert-info">
-            <i class="fas fa-lightbulb"></i>
-            <strong>Tip:</strong> Detailed house analytics and billing history can be found in the Reports section.
-        </div>
-    `;
-    new bootstrap.Modal(document.getElementById('houseDetailsModal')).show();
 }
 
 // Delete house with confirmation

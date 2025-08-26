@@ -437,6 +437,113 @@ def edit_house(house_id):
     conn.close()
     return render_template('edit_house.html', house=house)
 
+@app.route('/houses/<int:house_id>/view')
+@login_required
+def view_house(house_id):
+    """View house details page"""
+    conn = get_db_connection()
+    
+    # Check if user can access this house data
+    user_house_id = get_user_house_id()
+    if session.get('user_role') != 'admin' and user_house_id != house_id:
+        flash('Access denied.', 'error')
+        return redirect(url_for('houses'))
+    
+    # Get house details
+    house = conn.execute('SELECT * FROM houses WHERE id = ?', (house_id,)).fetchone()
+    if not house:
+        flash('House not found!', 'error')
+        conn.close()
+        return redirect(url_for('houses'))
+    
+    # Get bills summary for this house
+    bills_summary = conn.execute('''
+        SELECT 
+            COUNT(*) as total_bills,
+            SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) as paid_bills,
+            SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_bills,
+            SUM(CASE WHEN status = 'overdue' THEN 1 ELSE 0 END) as overdue_bills,
+            COALESCE(SUM(current_balance), 0) as total_outstanding,
+            COALESCE(SUM(total_amount_paid), 0) as total_paid,
+            COALESCE(SUM(total_amount_due), 0) as total_due
+        FROM bills 
+        WHERE house_id = ?
+    ''', (house_id,)).fetchone()
+    
+    # Get payments summary
+    payments_summary = conn.execute('''
+        SELECT 
+            COUNT(*) as total_payments,
+            COALESCE(SUM(amount_paid), 0) as total_amount_paid,
+            MAX(payment_date) as last_payment_date,
+            MIN(payment_date) as first_payment_date
+        FROM payments 
+        WHERE house_id = ?
+    ''', (house_id,)).fetchone()
+    
+    # Get meter readings summary
+    meter_readings_summary = conn.execute('''
+        SELECT 
+            COUNT(*) as total_readings,
+            COALESCE(SUM(consumption), 0) as total_consumption,
+            COALESCE(AVG(consumption), 0) as avg_consumption,
+            MAX(reading_date) as last_reading_date,
+            COALESCE(MAX(current_reading), 0) as last_reading_value
+        FROM meter_readings 
+        WHERE house_id = ?
+    ''', (house_id,)).fetchone()
+    
+    # Get recent bills (last 5)
+    recent_bills = conn.execute('''
+        SELECT bill_type, billing_cycle, generation_date, due_date,
+               total_amount_due, current_balance, status
+        FROM bills 
+        WHERE house_id = ? 
+        ORDER BY generation_date DESC 
+        LIMIT 5
+    ''', (house_id,)).fetchall()
+    
+    # Get recent payments (last 5)
+    recent_payments = conn.execute('''
+        SELECT p.payment_date, p.amount_paid, p.payment_method, 
+               b.bill_type, b.billing_cycle, p.transaction_id
+        FROM payments p
+        JOIN bills b ON p.bill_id = b.id
+        WHERE p.house_id = ? 
+        ORDER BY p.payment_date DESC 
+        LIMIT 5
+    ''', (house_id,)).fetchall()
+    
+    # Get recent meter readings (last 5)
+    recent_readings = conn.execute('''
+        SELECT reading_date, current_reading, previous_reading, 
+               consumption, status
+        FROM meter_readings 
+        WHERE house_id = ? 
+        ORDER BY reading_date DESC 
+        LIMIT 5
+    ''', (house_id,)).fetchall()
+    
+    # Get user assigned to this house
+    assigned_user = conn.execute('''
+        SELECT first_name, last_name, email, phone_number, 
+               last_login, created_at, role
+        FROM users 
+        WHERE house_id = ?
+    ''', (house_id,)).fetchone()
+    
+    conn.close()
+    
+    return render_template('view_house.html', 
+                         house=house,
+                         bills_summary=bills_summary,
+                         payments_summary=payments_summary,
+                         meter_readings_summary=meter_readings_summary,
+                         recent_bills=recent_bills,
+                         recent_payments=recent_payments,
+                         recent_readings=recent_readings,
+                         assigned_user=assigned_user)
+
 @app.route('/bills')
 @login_required
 def bills():
