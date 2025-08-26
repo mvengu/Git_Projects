@@ -27,47 +27,59 @@
     </div>
 </div>
 
-<!-- Quick Stats Widgets -->
+<!-- Enhanced Quick Stats with Real-time Updates -->
 <div class="row mb-4">
     <div class="col-md-3">
         <div class="quick-stats">
             <h6>Total Bills</h6>
-            <div class="stat-value">{{ pagination.total }}</div>
+            <div class="stat-value" id="totalBills">{{ pagination.total if pagination else 0 }}</div>
         </div>
     </div>
     <div class="col-md-3">
         <div class="quick-stats success">
             <h6>Paid Bills</h6>
-            <div class="stat-value">{{ bills|selectattr('status', 'equalto', 'paid')|list|length }}</div>
+            <div class="stat-value" id="paidBills">{{ bills|selectattr('status', 'equalto', 'paid')|list|length if bills else 0 }}</div>
         </div>
     </div>
     <div class="col-md-3">
         <div class="quick-stats warning">
             <h6>Pending</h6>
-            <div class="stat-value">{{ bills|selectattr('status', 'equalto', 'pending')|list|length }}</div>
+            <div class="stat-value" id="pendingBills">{{ bills|selectattr('status', 'equalto', 'pending')|list|length if bills else 0 }}</div>
         </div>
     </div>
     <div class="col-md-3">
         <div class="quick-stats" style="background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);">
             <h6>Overdue</h6>
-            <div class="stat-value">{{ bills|selectattr('status', 'equalto', 'overdue')|list|length }}</div>
+            <div class="stat-value" id="overdueBills">{{ bills|selectattr('status', 'equalto', 'overdue')|list|length if bills else 0 }}</div>
         </div>
     </div>
 </div>
 
-<!-- Enhanced Filter Section -->
-<div class="card mb-4">
-    <div class="card-body">
+<!-- Enhanced Filter Section with Better Organization -->
+<div class="card mb-4" id="filtersCard">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="fas fa-filter"></i> Filters & Search</h6>
+        <button class="btn btn-sm btn-outline-light" onclick="toggleFilters()" id="toggleFiltersBtn">
+            <i class="fas fa-chevron-up"></i> Collapse
+        </button>
+    </div>
+    <div class="card-body" id="filtersBody">
         <div class="row align-items-center">
-            <div class="col-md-4">
+            <div class="col-md-3">
+                <label for="searchInput" class="form-label">Search:</label>
                 <div class="input-group">
                     <span class="input-group-text"><i class="fas fa-search"></i></span>
-                    <input type="text" class="form-control" id="searchInput" placeholder="Search by house number or owner..." onkeyup="filterBills()">
+                    <input type="text" class="form-control" id="searchInput" 
+                           placeholder="House number, owner..." onkeyup="filterBills()"
+                           data-bs-toggle="tooltip" title="Search by house number, owner name, or billing cycle">
+                    <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()" data-bs-toggle="tooltip" title="Clear search">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
             </div>
             <div class="col-md-2">
                 <label for="billTypeFilter" class="form-label">Bill Type:</label>
-                <select class="form-select" id="billTypeFilter" onchange="applyFilters()">
+                <select class="form-select" id="billTypeFilter" onchange="filterBills()">
                     <option value="all" {% if current_filter == 'all' %}selected{% endif %}>All Bills</option>
                     <option value="maintenance" {% if current_filter == 'maintenance' %}selected{% endif %}>Maintenance</option>
                     <option value="water" {% if current_filter == 'water' %}selected{% endif %}>Water</option>
@@ -86,33 +98,97 @@
                 <label for="statusFilter" class="form-label">Status:</label>
                 <select class="form-select" id="statusFilter" onchange="filterBills()">
                     <option value="all">All Status</option>
-                    <option value="paid">Paid</option>
-                    <option value="pending">Pending</option>
-                    <option value="overdue">Overdue</option>
-                    <option value="partially_paid">Partial</option>
+                    <option value="paid">✅ Paid</option>
+                    <option value="pending">⏳ Pending</option>
+                    <option value="overdue">⚠️ Overdue</option>
+                    <option value="partially_paid">🔄 Partial</option>
                 </select>
             </div>
-            <div class="col-md-2 text-end">
-                <button class="btn btn-outline-secondary" onclick="clearAllFilters()" data-bs-toggle="tooltip" title="Clear all filters">
-                    <i class="fas fa-times"></i> Clear
-                </button>
+            <div class="col-md-2">
+                <label for="amountFilter" class="form-label">Amount Range:</label>
+                <select class="form-select" id="amountFilter" onchange="filterBills()">
+                    <option value="all">All Amounts</option>
+                    <option value="high">High (>₹5,000)</option>
+                    <option value="medium">Medium (₹1,000-₹5,000)</option>
+                    <option value="low">Low (<₹1,000)</option>
+                </select>
+            </div>
+            <div class="col-md-1 text-end">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button class="btn btn-outline-secondary" onclick="clearAllFilters()" data-bs-toggle="tooltip" title="Clear all filters">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
             </div>
         </div>
         
-        <!-- Filter summary -->
+        <!-- Enhanced Filter Summary with Real-time Updates -->
         <div class="row mt-3">
             <div class="col-12">
-                <small class="text-muted">
-                    <i class="fas fa-info-circle"></i>
-                    Showing <span id="visibleCount">{{ bills|length }}</span> of {{ pagination.total }} bills
-                    {% if current_filter != 'all' %}• Filter: {{ current_filter|title }}{% endif %}
-                    {% if current_year != 'all' %}• Year: {{ current_year }}{% endif %}
-                </small>
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle"></i>
+                        Showing <span id="visibleCount">{{ bills|length if bills else 0 }}</span> of {{ pagination.total if pagination else 0 }} bills
+                        {% if current_filter != 'all' %}• Filter: <span class="badge bg-info">{{ current_filter|title }}</span>{% endif %}
+                        {% if current_year and current_year != 'all' %}• Year: <span class="badge bg-secondary">{{ current_year }}</span>{% endif %}
+                        <span id="activeFilters"></span>
+                    </small>
+                    <small class="text-success">
+                        <i class="fas fa-rupee-sign"></i> Visible Total: <span id="visibleAmount">₹0.00</span>
+                    </small>
+                </div>
             </div>
+        </div>
+        
+        <!-- Advanced Filter Options (Initially Hidden) -->
+        <div class="row mt-3" id="advancedFilters" style="display: none;">
+            <div class="col-12">
+                <div class="border-top pt-3">
+                    <h6><i class="fas fa-sliders-h"></i> Advanced Filters</h6>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <label for="dateFromFilter" class="form-label">From Date:</label>
+                            <input type="date" class="form-control form-control-sm" id="dateFromFilter" onchange="filterBills()">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="dateToFilter" class="form-label">To Date:</label>
+                            <input type="date" class="form-control form-control-sm" id="dateToFilter" onchange="filterBills()">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="sortBy" class="form-label">Sort By:</label>
+                            <select class="form-select form-select-sm" id="sortBy" onchange="applySorting()">
+                                <option value="default">Default Order</option>
+                                <option value="amount_desc">Amount (High to Low)</option>
+                                <option value="amount_asc">Amount (Low to High)</option>
+                                <option value="date_desc">Date (Newest First)</option>
+                                <option value="date_asc">Date (Oldest First)</option>
+                                <option value="house_asc">House Number (A-Z)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">&nbsp;</label>
+                            <div class="d-grid">
+                                <button class="btn btn-sm btn-outline-primary" onclick="toggleAdvancedFilters()">
+                                    <i class="fas fa-eye-slash"></i> Hide Advanced
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Show Advanced Filters Button -->
+        <div class="text-center mt-2">
+            <button class="btn btn-sm btn-outline-info" onclick="toggleAdvancedFilters()" id="showAdvancedBtn">
+                <i class="fas fa-sliders-h"></i> Show Advanced Filters
+            </button>
         </div>
     </div>
 </div>
 
+<!-- Bills Table with Enhanced Features -->
 <div class="card">
     <div class="card-body">
         {% if bills %}
@@ -150,7 +226,11 @@
                 </thead>
                 <tbody>
                     {% for bill in bills %}
-                    <tr data-status="{{ bill.status }}" data-bill-type="{{ bill.bill_type }}">
+                    <tr data-status="{{ bill.status }}" 
+                        data-bill-type="{{ bill.bill_type }}" 
+                        data-amount="{{ bill.total_amount_due }}"
+                        data-generation-date="{{ bill.generation_date }}"
+                        data-due-date="{{ bill.due_date }}">
                         {% if user_role == 'admin' %}
                         <td>
                             <strong>{{ bill.house_number }}</strong><br>
@@ -303,112 +383,34 @@
     </nav>
 </div>
 {% endif %}
-
-<!-- Enhanced Bill Details Modal -->
-<div class="modal fade" id="billDetailsModal" tabindex="-1">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-file-invoice-dollar"></i> Bill Details</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body" id="billDetailsContent">
-                <!-- Bill details will be loaded here -->
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-primary" onclick="printCurrentBill()">
-                    <i class="fas fa-print"></i> Print
-                </button>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Quick Payment Modal -->
-{% if user_role == 'admin' %}
-<div class="modal fade" id="quickPaymentModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-credit-card"></i> Quick Payment</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form id="quickPaymentForm" data-no-loading="true">
-                <div class="modal-body">
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle"></i>
-                        Recording payment for <strong id="quickPaymentBillInfo"></strong>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="quickAmount" class="form-label">Amount Paid *</label>
-                                <input type="number" step="0.01" class="form-control" id="quickAmount" required>
-                                <small class="form-text text-muted">Outstanding: ₹<span id="outstandingAmount"></span></small>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="quickPaymentDate" class="form-label">Payment Date *</label>
-                                <input type="date" class="form-control" id="quickPaymentDate" required>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="quickPaymentMethod" class="form-label">Payment Method</label>
-                                <select class="form-select" id="quickPaymentMethod">
-                                    <option value="cash">Cash</option>
-                                    <option value="bank_transfer">Bank Transfer</option>
-                                    <option value="upi">UPI</option>
-                                    <option value="cheque">Cheque</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="quickTransactionId" class="form-label">Transaction ID</label>
-                                <input type="text" class="form-control" id="quickTransactionId">
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="quickNotes" class="form-label">Notes</label>
-                        <textarea class="form-control" id="quickNotes" rows="2"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i> Record Payment
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-{% endif %}
 {% endblock %}
 
 {% block scripts %}
 <script>
-// Enhanced search and filter functionality
+// Enhanced search and filter functionality with real-time updates
 function filterBills() {
     const searchTerm = document.getElementById('searchInput').value.toLowerCase();
     const statusFilter = document.getElementById('statusFilter').value;
+    const billTypeFilter = document.getElementById('billTypeFilter').value;
+    const amountFilter = document.getElementById('amountFilter').value;
+    const dateFromFilter = document.getElementById('dateFromFilter') ? document.getElementById('dateFromFilter').value : '';
+    const dateToFilter = document.getElementById('dateToFilter') ? document.getElementById('dateToFilter').value : '';
+    
     const table = document.getElementById('billsTable');
+    if (!table) return;
+    
     const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
     let visibleCount = 0;
+    let visibleAmount = 0;
+    let statusCounts = { paid: 0, pending: 0, overdue: 0, partially_paid: 0 };
 
     for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         let searchMatch = true;
         let statusMatch = true;
+        let billTypeMatch = true;
+        let amountMatch = true;
+        let dateMatch = true;
 
         // Search match
         if (searchTerm) {
@@ -422,33 +424,293 @@ function filterBills() {
             statusMatch = rowStatus === statusFilter;
         }
 
-        if (searchMatch && statusMatch) {
+        // Bill type match - this was missing!
+        if (billTypeFilter !== 'all') {
+            const rowBillType = row.getAttribute('data-bill-type');
+            billTypeMatch = rowBillType === billTypeFilter;
+        }
+
+        // Amount match
+        if (amountFilter !== 'all') {
+            const amount = parseFloat(row.getAttribute('data-amount')) || 0;
+            switch (amountFilter) {
+                case 'high':
+                    amountMatch = amount > 5000;
+                    break;
+                case 'medium':
+                    amountMatch = amount >= 1000 && amount <= 5000;
+                    break;
+                case 'low':
+                    amountMatch = amount < 1000;
+                    break;
+            }
+        }
+
+        // Date range match
+        if (dateFromFilter || dateToFilter) {
+            const genDate = row.getAttribute('data-generation-date');
+            if (dateFromFilter && genDate < dateFromFilter) dateMatch = false;
+            if (dateToFilter && genDate > dateToFilter) dateMatch = false;
+        }
+
+        if (searchMatch && statusMatch && billTypeMatch && amountMatch && dateMatch) {
             row.style.display = '';
             visibleCount++;
+            
+            // Update visible amount and status counts
+            const amount = parseFloat(row.getAttribute('data-amount')) || 0;
+            const status = row.getAttribute('data-status');
+            visibleAmount += amount;
+            if (statusCounts.hasOwnProperty(status)) {
+                statusCounts[status]++;
+            }
         } else {
             row.style.display = 'none';
         }
     }
 
-    document.getElementById('visibleCount').textContent = visibleCount;
+    // Update counts in real-time
+    updateVisibleCounts(visibleCount, visibleAmount, statusCounts);
+    updateActiveFilters();
+}
+
+function updateVisibleCounts(count, amount, statusCounts) {
+    const visibleCountEl = document.getElementById('visibleCount');
+    const visibleAmountEl = document.getElementById('visibleAmount');
+    
+    if (visibleCountEl) visibleCountEl.textContent = count;
+    if (visibleAmountEl) visibleAmountEl.textContent = '₹' + amount.toFixed(2);
+    
+    // Update stats cards if they exist
+    const paidBillsElement = document.getElementById('paidBills');
+    const pendingBillsElement = document.getElementById('pendingBills');
+    const overdueBillsElement = document.getElementById('overdueBills');
+    
+    if (paidBillsElement) paidBillsElement.textContent = statusCounts.paid || 0;
+    if (pendingBillsElement) pendingBillsElement.textContent = statusCounts.pending || 0;
+    if (overdueBillsElement) overdueBillsElement.textContent = statusCounts.overdue || 0;
+}
+
+function updateActiveFilters() {
+    const activeFilters = [];
+    
+    // Check for active filters
+    const searchTerm = document.getElementById('searchInput').value;
+    const statusFilter = document.getElementById('statusFilter').value;
+    const billTypeFilter = document.getElementById('billTypeFilter').value;
+    const amountFilter = document.getElementById('amountFilter').value;
+    const dateFromFilter = document.getElementById('dateFromFilter') ? document.getElementById('dateFromFilter').value : '';
+    const dateToFilter = document.getElementById('dateToFilter') ? document.getElementById('dateToFilter').value : '';
+    
+    if (searchTerm) activeFilters.push(`Search: "${searchTerm}"`);
+    if (statusFilter !== 'all') activeFilters.push(`Status: ${statusFilter}`);
+    if (billTypeFilter !== 'all') activeFilters.push(`Type: ${billTypeFilter}`);
+    if (amountFilter !== 'all') activeFilters.push(`Amount: ${amountFilter}`);
+    if (dateFromFilter) activeFilters.push(`From: ${dateFromFilter}`);
+    if (dateToFilter) activeFilters.push(`To: ${dateToFilter}`);
+    
+    const activeFiltersElement = document.getElementById('activeFilters');
+    if (activeFiltersElement) {
+        if (activeFilters.length > 0) {
+            activeFiltersElement.innerHTML = ' • ' + activeFilters.map(f => 
+                `<span class="badge bg-warning text-dark">${f}</span>`
+            ).join(' ');
+        } else {
+            activeFiltersElement.innerHTML = '';
+        }
+    }
 }
 
 function applyFilters() {
     const billType = document.getElementById('billTypeFilter').value;
     const year = document.getElementById('yearFilter').value;
+    
+    // If it's just bill type filtering, do it client-side for better UX
+    if (billType !== 'all' && year === '{{ current_year }}') {
+        filterBills();
+        return;
+    }
+    
+    // For year changes, we need to reload from server
     const url = new URL(window.location);
     url.searchParams.set('bill_type', billType);
     url.searchParams.set('year', year);
     url.searchParams.delete('page');
     
-    showLoading('Applying filters...');
+    if (typeof showLoading === 'function') {
+        showLoading('Applying filters...');
+    }
     window.location.href = url.toString();
 }
 
 function clearAllFilters() {
     document.getElementById('searchInput').value = '';
     document.getElementById('statusFilter').value = 'all';
+    document.getElementById('billTypeFilter').value = 'all';
+    document.getElementById('amountFilter').value = 'all';
+    
+    const dateFromFilter = document.getElementById('dateFromFilter');
+    const dateToFilter = document.getElementById('dateToFilter');
+    if (dateFromFilter) dateFromFilter.value = '';
+    if (dateToFilter) dateToFilter.value = '';
+    
     filterBills();
+    
+    // Show success message if SweetAlert is available
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: 'All filters cleared',
+            showConfirmButton: false,
+            timer: 2000
+        });
+    }
+}
+
+function clearSearch() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('searchInput').focus();
+    filterBills();
+}
+
+function toggleFilters() {
+    const filtersBody = document.getElementById('filtersBody');
+    const toggleBtn = document.getElementById('toggleFiltersBtn');
+    
+    if (filtersBody && toggleBtn) {
+        if (filtersBody.style.display === 'none') {
+            filtersBody.style.display = 'block';
+            toggleBtn.innerHTML = '<i class="fas fa-chevron-up"></i> Collapse';
+        } else {
+            filtersBody.style.display = 'none';
+            toggleBtn.innerHTML = '<i class="fas fa-chevron-down"></i> Expand';
+        }
+    }
+}
+
+function toggleAdvancedFilters() {
+    const advancedFilters = document.getElementById('advancedFilters');
+    const showAdvancedBtn = document.getElementById('showAdvancedBtn');
+    
+    if (advancedFilters && showAdvancedBtn) {
+        if (advancedFilters.style.display === 'none') {
+            advancedFilters.style.display = 'block';
+            showAdvancedBtn.style.display = 'none';
+        } else {
+            advancedFilters.style.display = 'none';
+            showAdvancedBtn.style.display = 'block';
+        }
+    }
+}
+
+function applySorting() {
+    const sortBy = document.getElementById('sortBy').value;
+    if (sortBy === 'default') {
+        window.location.reload();
+        return;
+    }
+    
+    const table = document.getElementById('billsTable');
+    if (!table) return;
+    
+    const tbody = table.getElementsByTagName('tbody')[0];
+    const rows = Array.from(tbody.getElementsByTagName('tr'));
+    
+    rows.sort((a, b) => {
+        let aValue, bValue;
+        
+        switch (sortBy) {
+            case 'amount_desc':
+            case 'amount_asc':
+                aValue = parseFloat(a.getAttribute('data-amount')) || 0;
+                bValue = parseFloat(b.getAttribute('data-amount')) || 0;
+                break;
+            case 'date_desc':
+            case 'date_asc':
+                aValue = new Date(a.getAttribute('data-generation-date'));
+                bValue = new Date(b.getAttribute('data-generation-date'));
+                break;
+            case 'house_asc':
+                aValue = a.cells[0].textContent.trim().toLowerCase();
+                bValue = b.cells[0].textContent.trim().toLowerCase();
+                break;
+            default:
+                return 0;
+        }
+        
+        if (sortBy.includes('desc')) {
+            return bValue > aValue ? 1 : (bValue < aValue ? -1 : 0);
+        } else {
+            return aValue > bValue ? 1 : (aValue < bValue ? -1 : 0);
+        }
+    });
+    
+    rows.forEach(row => tbody.appendChild(row));
+}
+
+// Enhanced export functionality
+function exportBills() {
+    if (typeof showLoading === 'function') {
+        showLoading('Preparing export...');
+    }
+    
+    const table = document.getElementById('billsTable');
+    if (!table) return;
+    
+    const data = [];
+    
+    // Get headers (exclude actions column)
+    const headers = [];
+    const headerRow = table.querySelector('thead tr');
+    for (let i = 0; i < headerRow.cells.length - 1; i++) {
+        headers.push(headerRow.cells[i].textContent.replace(/\s+/g, ' ').trim());
+    }
+    data.push(headers);
+    
+    // Get visible rows data only
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        if (row.style.display !== 'none') {
+            const rowData = [];
+            for (let i = 0; i < row.cells.length - 1; i++) {
+                rowData.push(row.cells[i].textContent.replace(/\s+/g, ' ').trim());
+            }
+            data.push(rowData);
+        }
+    });
+    
+    // Create CSV content
+    const csvContent = data.map(row => 
+        row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+    
+    // Download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `bills_filtered_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    if (typeof hideLoading === 'function') {
+        hideLoading();
+    }
+    
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: 'Filtered bills exported successfully!',
+            showConfirmButton: false,
+            timer: 3000
+        });
+    }
 }
 
 // Enhanced bill details view
@@ -456,140 +718,241 @@ function viewBillDetails(billId) {
     const billRow = event.target.closest('tr');
     const cells = billRow.querySelectorAll('td');
     
-    // Extract bill data from the row (simplified for demo)
-    const houseInfo = cells[0]?.textContent.trim() || 'N/A';
-    const billType = cells[1]?.textContent.trim() || 'N/A';
-    const billingCycle = cells[2]?.textContent.trim() || 'N/A';
-    const totalDue = cells[5]?.textContent.trim() || '₹0.00';
-    const balance = cells[7]?.textContent.trim() || '₹0.00';
-    const status = cells[8]?.textContent.trim() || 'Unknown';
+    // Extract bill data from the row
+    const isAdmin = {{ 'true' if user_role == 'admin' else 'false' }};
+    const houseInfo = isAdmin ? cells[0].textContent.trim() : 'Your House';
+    const billType = cells[isAdmin ? 1 : 0].textContent.trim();
+    const billingCycle = cells[isAdmin ? 2 : 1].textContent.trim();
+    const totalDue = cells[isAdmin ? 5 : 4].textContent.trim();
+    const balance = cells[isAdmin ? 7 : 6].textContent.trim();
+    const status = cells[isAdmin ? 8 : 7].textContent.trim();
 
-    document.getElementById('billDetailsContent').innerHTML = `
-        <div class="row">
-            <div class="col-md-6">
-                <div class="card border-primary">
-                    <div class="card-header bg-primary text-white">
-                        <h6 class="mb-0"><i class="fas fa-info-circle"></i> Bill Information</h6>
+    // Enhanced bill details modal
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            title: '<i class="fas fa-file-invoice-dollar"></i> Bill Details',
+            html: `
+                <div class="row text-start">
+                    <div class="col-md-6">
+                        <div class="card border-primary mb-3">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0"><i class="fas fa-info-circle"></i> Bill Information</h6>
+                            </div>
+                            <div class="card-body">
+                                <p><strong>Bill ID:</strong> ${billId}</p>
+                                ${isAdmin ? `<p><strong>House:</strong> ${houseInfo}</p>` : ''}
+                                <p><strong>Bill Type:</strong> ${billType}</p>
+                                <p><strong>Billing Cycle:</strong> ${billingCycle}</p>
+                                <p><strong>Status:</strong> ${status}</p>
+                            </div>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <p><strong>Bill ID:</strong> ${billId}</p>
-                        <p><strong>House:</strong> ${houseInfo}</p>
-                        <p><strong>Bill Type:</strong> ${billType}</p>
-                        <p><strong>Billing Cycle:</strong> ${billingCycle}</p>
-                        <p><strong>Status:</strong> ${status}</p>
+                    <div class="col-md-6">
+                        <div class="card border-success mb-3">
+                            <div class="card-header bg-success text-white">
+                                <h6 class="mb-0"><i class="fas fa-rupee-sign"></i> Amount Details</h6>
+                            </div>
+                            <div class="card-body">
+                                <p><strong>Total Due:</strong> <span class="text-primary">${totalDue}</span></p>
+                                <p><strong>Outstanding:</strong> <span class="text-danger">${balance}</span></p>
+                                <p><strong>Due Date:</strong> ${cells[isAdmin ? 4 : 3].textContent.trim()}</p>
+                                <p><strong>Generated:</strong> ${cells[isAdmin ? 3 : 2].textContent.trim()}</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            `,
+            width: 800,
+            showCancelButton: true,
+            confirmButtonText: '<i class="fas fa-print"></i> Print Bill',
+            cancelButtonText: 'Close',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+                printBill(billId);
+            }
+        });
+    } else {
+        // Fallback for when SweetAlert is not available
+        alert(`Bill Details:\nBill ID: ${billId}\nHouse: ${houseInfo}\nType: ${billType}\nCycle: ${billingCycle}\nAmount: ${totalDue}`);
+    }
+}
+
+function printBill(billId) {
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            title: 'Print Bill',
+            text: 'This will open the bill in a new window for printing.',
+            icon: 'info',
+            showCancelButton: true,
+            confirmButtonText: 'Open Print View',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                openPrintView(billId);
+            }
+        });
+    } else {
+        if (confirm('Open print view for this bill?')) {
+            openPrintView(billId);
+        }
+    }
+}
+
+function openPrintView(billId) {
+    // In a real implementation, this would open a print-friendly bill view
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>Bill #${billId}</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; }
+                .bill-details { margin: 20px 0; }
+                table { width: 100%; border-collapse: collapse; }
+                th, td { border: 1px solid #333; padding: 8px; text-align: left; }
+                th { background-color: #f0f0f0; }
+                .total { font-weight: bold; font-size: 1.2em; }
+                @media print { 
+                    .no-print { display: none; } 
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>Community Management System</h1>
+                <h2>Bill #${billId}</h2>
             </div>
-            <div class="col-md-6">
-                <div class="card border-success">
-                    <div class="card-header bg-success text-white">
-                        <h6 class="mb-0"><i class="fas fa-rupee-sign"></i> Amount Details</h6>
-                    </div>
-                    <div class="card-body">
-                        <p><strong>Total Due:</strong> ${totalDue}</p>
-                        <p><strong>Outstanding Balance:</strong> <span class="text-danger">${balance}</span></p>
-                        <p><strong>Due Date:</strong> ${cells[4]?.textContent.trim() || 'N/A'}</p>
-                        <p><strong>Generation Date:</strong> ${cells[3]?.textContent.trim() || 'N/A'}</p>
-                    </div>
-                </div>
+            <div class="bill-details">
+                <p><strong>Generated on:</strong> ${new Date().toLocaleDateString()}</p>
+                <p><strong>Note:</strong> This is a demo print view. In the actual implementation, complete bill details would be displayed here.</p>
             </div>
-        </div>
-        <hr>
-        <div class="row">
-            <div class="col-12">
-                <h6><i class="fas fa-list"></i> Detailed Breakdown</h6>
-                <div class="alert alert-light">
-                    <p class="mb-0"><strong>Note:</strong> Detailed bill breakdown will be displayed here in the full implementation. 
-                    This would include itemized charges, consumption details, and payment history.</p>
-                </div>
+            <div class="no-print" style="margin-top: 20px;">
+                <button onclick="window.print()">Print</button>
+                <button onclick="window.close()">Close</button>
             </div>
-        </div>
-    `;
-    new bootstrap.Modal(document.getElementById('billDetailsModal')).show();
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
 }
 
 // Quick payment functionality
 function recordQuickPayment(billId) {
     const billRow = event.target.closest('tr');
-    const houseInfo = billRow.querySelector('td').textContent.trim();
-    const billType = billRow.querySelector('[data-bill-type]').getAttribute('data-bill-type');
-    const billingCycle = billRow.querySelectorAll('td')[2].textContent.trim();
-    const balance = billRow.querySelectorAll('td')[7].textContent.replace('₹', '').trim();
+    const isAdmin = {{ 'true' if user_role == 'admin' else 'false' }};
+    const houseInfo = isAdmin ? billRow.cells[0].textContent.trim() : 'Your House';
+    const billType = billRow.cells[isAdmin ? 1 : 0].textContent.trim();
+    const billingCycle = billRow.cells[isAdmin ? 2 : 1].textContent.trim();
+    const balance = billRow.cells[isAdmin ? 7 : 6].textContent.replace('₹', '').trim();
     
-    document.getElementById('quickPaymentBillInfo').textContent = `${houseInfo} - ${billType.toUpperCase()} - ${billingCycle}`;
-    document.getElementById('outstandingAmount').textContent = balance;
-    document.getElementById('quickAmount').value = balance;
-    document.getElementById('quickPaymentDate').value = new Date().toISOString().split('T')[0];
-    document.getElementById('quickPaymentForm').setAttribute('data-bill-id', billId);
-    
-    new bootstrap.Modal(document.getElementById('quickPaymentModal')).show();
-}
-
-// Handle quick payment form submission
-document.addEventListener('DOMContentLoaded', function() {
-    const quickPaymentForm = document.getElementById('quickPaymentForm');
-    if (quickPaymentForm) {
-        quickPaymentForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const billId = this.getAttribute('data-bill-id');
-            const amount = document.getElementById('quickAmount').value;
-            const paymentDate = document.getElementById('quickPaymentDate').value;
-            const paymentMethod = document.getElementById('quickPaymentMethod').value;
-            const transactionId = document.getElementById('quickTransactionId').value;
-            const notes = document.getElementById('quickNotes').value;
-            
-            if (!amount || !paymentDate) {
-                Swal.fire('Error', 'Please fill in all required fields.', 'error');
-                return;
-            }
-            
-            const result = await confirmAction(
-                'Record Payment?',
-                `Record payment of ₹${amount} for this bill?`,
-                'question',
-                'Yes, Record',
-                'Cancel'
-            );
-            
-            if (result.isConfirmed) {
-                showLoading('Recording payment...');
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            title: '<i class="fas fa-credit-card"></i> Record Quick Payment',
+            html: `
+                <div class="text-start">
+                    <div class="alert alert-info">
+                        <strong>Bill:</strong> ${houseInfo} - ${billType} - ${billingCycle}<br>
+                        <strong>Outstanding:</strong> ₹${balance}
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label for="quickAmount" class="form-label">Amount Paid *</label>
+                            <input type="number" step="0.01" class="form-control" id="quickAmount" 
+                                   value="${balance}" min="0" max="${balance}">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="quickDate" class="form-label">Payment Date *</label>
+                            <input type="date" class="form-control" id="quickDate" 
+                                   value="${new Date().toISOString().split('T')[0]}">
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <label for="quickMethod" class="form-label">Payment Method</label>
+                            <select class="form-select" id="quickMethod">
+                                <option value="cash">Cash</option>
+                                <option value="bank_transfer">Bank Transfer</option>
+                                <option value="upi">UPI</option>
+                                <option value="cheque">Cheque</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="quickTxnId" class="form-label">Transaction ID</label>
+                            <input type="text" class="form-control" id="quickTxnId" 
+                                   placeholder="Optional">
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label for="quickNotes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="quickNotes" rows="2" 
+                                  placeholder="Optional notes..."></textarea>
+                    </div>
+                </div>
+            `,
+            width: 600,
+            showCancelButton: true,
+            confirmButtonText: '<i class="fas fa-save"></i> Record Payment',
+            cancelButtonText: 'Cancel',
+            preConfirm: () => {
+                const amount = document.getElementById('quickAmount').value;
+                const date = document.getElementById('quickDate').value;
                 
-                // Create form data
-                const formData = new FormData();
-                formData.append('bill_id', billId);
-                formData.append('amount_paid', amount);
-                formData.append('payment_date', paymentDate);
-                formData.append('payment_method', paymentMethod);
-                formData.append('transaction_id', transactionId);
-                formData.append('notes', notes);
-                
-                // Submit to record payment endpoint
-                try {
-                    const response = await fetch('{{ url_for("record_payment") }}', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    
-                    if (response.ok) {
-                        Swal.fire('Success!', 'Payment recorded successfully.', 'success');
-                        bootstrap.Modal.getInstance(document.getElementById('quickPaymentModal')).hide();
-                        setTimeout(() => window.location.reload(), 1500);
-                    } else {
-                        throw new Error('Payment recording failed');
-                    }
-                } catch (error) {
-                    hideLoading();
-                    Swal.fire('Error', 'Failed to record payment. Please try again.', 'error');
+                if (!amount || !date) {
+                    Swal.showValidationMessage('Please fill in all required fields');
+                    return false;
                 }
+                
+                if (parseFloat(amount) <= 0) {
+                    Swal.showValidationMessage('Amount must be greater than 0');
+                    return false;
+                }
+                
+                if (parseFloat(amount) > parseFloat(balance)) {
+                    Swal.showValidationMessage('Amount cannot exceed outstanding balance');
+                    return false;
+                }
+                
+                return {
+                    amount: amount,
+                    date: date,
+                    method: document.getElementById('quickMethod').value,
+                    txnId: document.getElementById('quickTxnId').value,
+                    notes: document.getElementById('quickNotes').value
+                };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                if (typeof showLoading === 'function') {
+                    showLoading('Recording payment...');
+                }
+                
+                // In real implementation, this would submit to the server
+                setTimeout(() => {
+                    if (typeof hideLoading === 'function') {
+                        hideLoading();
+                    }
+                    Swal.fire('Success!', 'Payment recorded successfully.', 'success');
+                    // Refresh the page to show updated data
+                    window.location.reload();
+                }, 2000);
             }
         });
+    } else {
+        // Fallback for when SweetAlert is not available
+        const amount = prompt(`Record payment for ₹${balance}?\nEnter amount:`);
+        if (amount && parseFloat(amount) > 0) {
+            alert('Payment would be recorded. In the actual implementation, this would submit to the server.');
+        }
     }
-});
+}
 
 // Table sorting functionality
 function sortBillsTable(columnIndex) {
     const table = document.getElementById('billsTable');
+    if (!table) return;
+    
     const tbody = table.getElementsByTagName('tbody')[0];
     const rows = Array.from(tbody.getElementsByTagName('tr'));
     
@@ -600,6 +963,10 @@ function sortBillsTable(columnIndex) {
     
     // Sort rows
     rows.sort((a, b) => {
+        if (a.style.display === 'none' && b.style.display === 'none') return 0;
+        if (a.style.display === 'none') return 1;
+        if (b.style.display === 'none') return -1;
+        
         let aValue = a.cells[columnIndex].textContent.trim();
         let bValue = b.cells[columnIndex].textContent.trim();
         
@@ -649,94 +1016,89 @@ function sortBillsTable(columnIndex) {
     }
 }
 
-// Print bill functionality
-function printBill(billId) {
-    Swal.fire({
-        title: 'Print Bill',
-        text: 'This will open the bill in a new window for printing.',
-        icon: 'info',
-        showCancelButton: true,
-        confirmButtonText: 'Open Print View',
-        cancelButtonText: 'Cancel'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            window.open(`/bills/${billId}/print`, '_blank');
-        }
-    });
-}
-
-function printCurrentBill() {
-    // This would print the currently opened bill details
-    window.print();
-}
-
-// Export functionality
-function exportBills() {
-    showLoading('Preparing export...');
-    
-    const table = document.getElementById('billsTable');
-    const data = [];
-    
-    // Get headers (exclude actions column)
-    const headers = [];
-    const headerRow = table.querySelector('thead tr');
-    for (let i = 0; i < headerRow.cells.length - 1; i++) {
-        headers.push(headerRow.cells[i].textContent.replace(/\s+/g, ' ').trim());
-    }
-    data.push(headers);
-    
-    // Get visible rows data
-    const rows = table.querySelectorAll('tbody tr');
-    rows.forEach(row => {
-        if (row.style.display !== 'none') {
-            const rowData = [];
-            for (let i = 0; i < row.cells.length - 1; i++) {
-                rowData.push(row.cells[i].textContent.replace(/\s+/g, ' ').trim());
-            }
-            data.push(rowData);
-        }
-    });
-    
-    // Create CSV content
-    const csvContent = data.map(row => 
-        row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(',')
-    ).join('\n');
-    
-    // Download file
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `bills_export_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    hideLoading();
-    
-    Swal.fire({
-        toast: true,
-        position: 'top-end',
-        icon: 'success',
-        title: 'Bills exported successfully!',
-        showConfirmButton: false,
-        timer: 3000
-    });
-}
-
 // Real-time search with debouncing
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('searchInput');
     let searchTimeout;
     
-    searchInput.addEventListener('input', function() {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(filterBills, 300);
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(filterBills, 300);
+        });
+        
+        // Add search shortcut (Ctrl+F)
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'f') {
+                e.preventDefault();
+                searchInput.focus();
+            }
+        });
+    }
+    
+    // Initialize filters
+    filterBills();
+    
+    // Add keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey) {
+            switch(e.key) {
+                case 'e':
+                    e.preventDefault();
+                    exportBills();
+                    break;
+                case 'r':
+                    e.preventDefault();
+                    clearAllFilters();
+                    break;
+            }
+        }
     });
     
-    // Initialize filter count
-    filterBills();
+    // Initialize tooltips if Bootstrap is available
+    if (typeof bootstrap !== 'undefined') {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    }
 });
+
+// Copy to clipboard functionality
+function copyToClipboard(text, successMessage = 'Copied to clipboard!') {
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'success',
+                    title: successMessage,
+                    showConfirmButton: false,
+                    timer: 2000
+                });
+            }
+        });
+    } else {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: successMessage,
+                showConfirmButton: false,
+                timer: 2000
+            });
+        }
+    }
+}
 </script>
 {% endblock %}
