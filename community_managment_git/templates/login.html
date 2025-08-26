@@ -1,0 +1,52 @@
+<!-- templates/login.html -->
+{% extends "base.html" %}
+
+{% block title %}Login - Community Management{% endblock %}
+
+{% block login_content %}
+<div class="min-vh-100 d-flex align-items-center justify-content-center" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+    <div class="card shadow-lg" style="width: 400px;">
+        <div class="card-body p-5">
+            <div class="text-center mb-4">
+                <i class="fas fa-building fa-3x text-primary mb-3"></i>
+                <h3 class="card-title">Community Portal</h3>
+                <p class="text-muted">Please sign in to your account</p>
+            </div>
+
+            <!-- Flash Messages for Login Page -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST">
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email Address</label>
+                    <input type="email" class="form-control" id="email" name="email" required>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" class="form-control" id="password" name="password" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary w-100 mb-3">
+                    <i class="fas fa-sign-in-alt"></i> Sign In
+                </button>
+            </form>
+            
+            <div class="text-center">
+                <small class="text-muted">
+                    Default admin: admin@community.com / admin123
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

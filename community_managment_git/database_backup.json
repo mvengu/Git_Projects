@@ -1,0 +1,433 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "email": "admin@community.com",
+      "password_hash": "scrypt:32768:8:1$yf76w4FNzGkBq5Xy$f910b928bbc501656741060fd21580a67b447267313e043fd6b6c1018904947a09c8d5c356bfc381c856d2fb0e09f2db4dce1ddf3daae5ff5738c946b97cb02d",
+      "role": "admin",
+      "first_name": "Admin",
+      "last_name": "User",
+      "phone_number": "9841871014",
+      "house_id": "B12",
+      "created_at": "2025-08-09 14:05:11",
+      "last_login": "2025-08-10 06:52:38"
+    }
+  ],
+  "houses": [
+    {
+      "id": 1,
+      "house_number": "B12",
+      "owner_name": "Venkatachalam M",
+      "contact_number": "9841871014",
+      "email": "mvengu@rediffmail.com",
+      "address": "B12",
+      "status": "occupied",
+      "created_at": "2025-08-09 14:07:33"
+    },
+    {
+      "id": 2,
+      "house_number": "A01",
+      "owner_name": "Suresh P N",
+      "contact_number": "9894657879",
+      "email": "",
+      "address": "A01",
+      "status": "occupied",
+      "created_at": "2025-08-10 05:47:16"
+    },
+    {
+      "id": 3,
+      "house_number": "A02",
+      "owner_name": "Maria Martin",
+      "contact_number": "9600930065",
+      "email": "",
+      "address": "A02",
+      "status": "occupied",
+      "created_at": "2025-08-10 05:47:49"
+    },
+    {
+      "id": 4,
+      "house_number": "A03",
+      "owner_name": "Mani",
+      "contact_number": "9600481888",
+      "email": "",
+      "address": "A03",
+      "status": "occupied",
+      "created_at": "2025-08-10 05:48:18"
+    },
+    {
+      "id": 5,
+      "house_number": "A04",
+      "owner_name": "Varadarajan",
+      "contact_number": "9894753535",
+      "email": "",
+      "address": "A04",
+      "status": "occupied",
+      "created_at": "2025-08-10 05:49:26"
+    },
+    {
+      "id": 6,
+      "house_number": "A05",
+      "owner_name": "Venkataesh",
+      "contact_number": "9843042427",
+      "email": "",
+      "address": "A05",
+      "status": "occupied",
+      "created_at": "2025-08-10 05:50:02"
+    },
+    {
+      "id": 7,
+      "house_number": "A06",
+      "owner_name": "Ramamoorthy",
+      "contact_number": "9843021345",
+      "email": "",
+      "address": "A06",
+      "status": "occupied",
+      "created_at": "2025-08-10 05:50:39"
+    },
+    {
+      "id": 8,
+      "house_number": "A07",
+      "owner_name": "Vidyapriya",
+      "contact_number": "9842475279",
+      "email": "",
+      "address": "A07",
+      "status": "occupied",
+      "created_at": "2025-08-10 05:51:04"
+    },
+    {
+      "id": 9,
+      "house_number": "A09",
+      "owner_name": "Kalavathi",
+      "contact_number": "9367760666",
+      "email": "",
+      "address": "A09",
+      "status": "occupied",
+      "created_at": "2025-08-10 05:51:35"
+    },
+    {
+      "id": 10,
+      "house_number": "A10",
+      "owner_name": "Ramu",
+      "contact_number": "9894374741",
+      "email": "",
+      "address": "A10",
+      "status": "occupied",
+      "created_at": "2025-08-10 05:52:11"
+    },
+    {
+      "id": 11,
+      "house_number": "A11",
+      "owner_name": "Vijayakumar",
+      "contact_number": "98943042720",
+      "email": "",
+      "address": "A11",
+      "status": "occupied",
+      "created_at": "2025-08-10 05:52:32"
+    },
+    {
+      "id": 12,
+      "house_number": "A12",
+      "owner_name": "Venkatachalapathy",
+      "contact_number": "9443708082",
+      "email": "",
+      "address": "A12",
+      "status": "occupied",
+      "created_at": "2025-08-10 05:53:04"
+    },
+    {
+      "id": 13,
+      "house_number": "A14",
+      "owner_name": "Prabhakar",
+      "contact_number": "9894779399",
+      "email": "",
+      "address": "A14",
+      "status": "occupied",
+      "created_at": "2025-08-10 05:54:30"
+    },
+    {
+      "id": 14,
+      "house_number": "A15",
+      "owner_name": "BalaSubramaniam",
+      "contact_number": "9842217229",
+      "email": "",
+      "address": "A15",
+      "status": "occupied",
+      "created_at": "2025-08-10 05:55:01"
+    },
+    {
+      "id": 15,
+      "house_number": "A16",
+      "owner_name": "Mani",
+      "contact_number": "8870888188",
+      "email": "",
+      "address": "A16",
+      "status": "occupied",
+      "created_at": "2025-08-10 05:55:26"
+    },
+    {
+      "id": 16,
+      "house_number": "A18",
+      "owner_name": "Sivakumar",
+      "contact_number": "9944957999",
+      "email": "",
+      "address": "A18",
+      "status": "occupied",
+      "created_at": "2025-08-10 05:56:00"
+    },
+    {
+      "id": 17,
+      "house_number": "B10",
+      "owner_name": "Raguvaran",
+      "contact_number": "9003347272",
+      "email": "",
+      "address": "B10",
+      "status": "occupied",
+      "created_at": "2025-08-10 05:56:44"
+    },
+    {
+      "id": 18,
+      "house_number": "B29",
+      "owner_name": "MohanRaj",
+      "contact_number": "9894091783",
+      "email": "",
+      "address": "B29",
+      "status": "occupied",
+      "created_at": "2025-08-10 05:57:31"
+    },
+    {
+      "id": 19,
+      "house_number": "B30",
+      "owner_name": "Pragadeeswaran",
+      "contact_number": "6380120018",
+      "email": "",
+      "address": "B30",
+      "status": "occupied",
+      "created_at": "2025-08-10 05:58:10"
+    },
+    {
+      "id": 20,
+      "house_number": "C01",
+      "owner_name": "Rajasekaran",
+      "contact_number": "9894650613",
+      "email": "",
+      "address": "C01",
+      "status": "occupied",
+      "created_at": "2025-08-10 05:58:40"
+    },
+    {
+      "id": 21,
+      "house_number": "C02",
+      "owner_name": "Bharathi",
+      "contact_number": "9940215372",
+      "email": "",
+      "address": "C02",
+      "status": "occupied",
+      "created_at": "2025-08-10 05:59:07"
+    },
+    {
+      "id": 22,
+      "house_number": "C03",
+      "owner_name": "Nithesh",
+      "contact_number": "9443713156",
+      "email": "",
+      "address": "C03",
+      "status": "occupied",
+      "created_at": "2025-08-10 05:59:27"
+    },
+    {
+      "id": 23,
+      "house_number": "C04",
+      "owner_name": "Selvaraj",
+      "contact_number": "9994930002",
+      "email": "",
+      "address": "C04",
+      "status": "occupied",
+      "created_at": "2025-08-10 05:59:52"
+    },
+    {
+      "id": 24,
+      "house_number": "C05",
+      "owner_name": "Manoharan",
+      "contact_number": "9003933322",
+      "email": "",
+      "address": "C05",
+      "status": "occupied",
+      "created_at": "2025-08-10 06:00:22"
+    },
+    {
+      "id": 25,
+      "house_number": "C06",
+      "owner_name": "Prakash",
+      "contact_number": "9952411091",
+      "email": "",
+      "address": "C06",
+      "status": "occupied",
+      "created_at": "2025-08-10 06:00:45"
+    },
+    {
+      "id": 26,
+      "house_number": "C07",
+      "owner_name": "Mohankumar",
+      "contact_number": "9655989399",
+      "email": "",
+      "address": "C07",
+      "status": "occupied",
+      "created_at": "2025-08-10 06:01:12"
+    },
+    {
+      "id": 27,
+      "house_number": "C09",
+      "owner_name": "Sivachalam",
+      "contact_number": "9790188511",
+      "email": "",
+      "address": "C09",
+      "status": "occupied",
+      "created_at": "2025-08-10 06:02:10"
+    },
+    {
+      "id": 28,
+      "house_number": "C10",
+      "owner_name": "Prema",
+      "contact_number": "9894614430",
+      "email": "",
+      "address": "C10",
+      "status": "occupied",
+      "created_at": "2025-08-10 06:02:49"
+    },
+    {
+      "id": 29,
+      "house_number": "C11",
+      "owner_name": "Prithvi",
+      "contact_number": "9489879707",
+      "email": "",
+      "address": "C11",
+      "status": "occupied",
+      "created_at": "2025-08-10 06:03:19"
+    },
+    {
+      "id": 30,
+      "house_number": "C12",
+      "owner_name": "Arunkumar",
+      "contact_number": "9842255066",
+      "email": "",
+      "address": "C12",
+      "status": "occupied",
+      "created_at": "2025-08-10 06:03:54"
+    },
+    {
+      "id": 31,
+      "house_number": "C14",
+      "owner_name": "Sigamani",
+      "contact_number": "9894644300",
+      "email": "",
+      "address": "C14",
+      "status": "occupied",
+      "created_at": "2025-08-10 06:04:21"
+    },
+    {
+      "id": 32,
+      "house_number": "C15",
+      "owner_name": "Sudhir",
+      "contact_number": "979085555",
+      "email": "",
+      "address": "C15",
+      "status": "occupied",
+      "created_at": "2025-08-10 06:04:54"
+    },
+    {
+      "id": 33,
+      "house_number": "C16",
+      "owner_name": "Preetha",
+      "contact_number": "9750992913",
+      "email": "",
+      "address": "C16",
+      "status": "occupied",
+      "created_at": "2025-08-10 06:05:18"
+    },
+    {
+      "id": 34,
+      "house_number": "C18",
+      "owner_name": "Mohanakrihnan",
+      "contact_number": "9361161665",
+      "email": "",
+      "address": "C18",
+      "status": "occupied",
+      "created_at": "2025-08-10 06:05:47"
+    },
+    {
+      "id": 35,
+      "house_number": "C19",
+      "owner_name": "Muthukumarasamy",
+      "contact_number": "9965104555",
+      "email": "",
+      "address": "C19",
+      "status": "occupied",
+      "created_at": "2025-08-10 06:17:09"
+    },
+    {
+      "id": 36,
+      "house_number": "C20",
+      "owner_name": "Durairaj",
+      "contact_number": "9843422001",
+      "email": "",
+      "address": "C20",
+      "status": "occupied",
+      "created_at": "2025-08-10 06:17:32"
+    },
+    {
+      "id": 37,
+      "house_number": "C21",
+      "owner_name": "Yogand",
+      "contact_number": "9003955540",
+      "email": "",
+      "address": "C21",
+      "status": "occupied",
+      "created_at": "2025-08-10 06:19:48"
+    },
+    {
+      "id": 38,
+      "house_number": "D01",
+      "owner_name": "Balasubramaniam",
+      "contact_number": "9362433555",
+      "email": "",
+      "address": "D01",
+      "status": "occupied",
+      "created_at": "2025-08-10 06:20:35"
+    },
+    {
+      "id": 39,
+      "house_number": "D02",
+      "owner_name": "Eswaran",
+      "contact_number": "9842407072",
+      "email": "",
+      "address": "D02",
+      "status": "occupied",
+      "created_at": "2025-08-10 06:21:06"
+    },
+    {
+      "id": 40,
+      "house_number": "D03",
+      "owner_name": "Sigamani",
+      "contact_number": "9894644300",
+      "email": "",
+      "address": "D03",
+      "status": "occupied",
+      "created_at": "2025-08-10 06:21:29"
+    },
+    {
+      "id": 41,
+      "house_number": "D",
+      "owner_name": "Lakshmanan",
+      "contact_number": "9843077877",
+      "email": "",
+      "address": "D",
+      "status": "occupied",
+      "created_at": "2025-08-10 06:22:05"
+    }
+  ],
+  "meter_readings": [],
+  "bills": [],
+  "payments": [],
+  "announcements": [],
+  "backup_date": "2025-08-10T12:31:09.774753"
+}

@@ -1,0 +1,1017 @@
+<!-- templates/generate_bills.html -->
+{% extends "base.html" %}
+
+{% block title %}Generate Bills - Community Management{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item">
+    <a href="{{ url_for('bills') }}"><i class="fas fa-file-invoice-dollar"></i> Bills</a>
+</li>
+<li class="breadcrumb-item active" aria-current="page">Generate Bills</li>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-file-invoice-dollar"></i> Generate Bills</h1>
+    <p>Generate monthly bills for all houses 
+        <i class="fas fa-question-circle help-icon" 
+           data-bs-toggle="tooltip" 
+           title="Bills will be generated for all occupied houses based on the selected type and cycle"></i>
+    </p>
+</div>
+
+<div class="row">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-cogs"></i> Bill Generation Settings</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="billGenerationForm" data-no-loading="true">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="billing_cycle" class="form-label">
+                                    Billing Cycle *
+                                    <i class="fas fa-question-circle help-icon" 
+                                       data-bs-toggle="tooltip" 
+                                       title="Select the month and year for which you want to generate bills"></i>
+                                </label>
+                                <input type="month" class="form-control" id="billing_cycle" name="billing_cycle" required>
+                                <small class="form-text text-muted">
+                                    <i class="fas fa-calendar"></i> Select the month and year for billing
+                                </small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="bill_type" class="form-label">
+                                    Bill Type *
+                                    <i class="fas fa-question-circle help-icon" 
+                                       data-bs-toggle="tooltip" 
+                                       title="Choose between maintenance bills (fixed ₹3,000) or water bills (based on consumption)"></i>
+                                </label>
+                                <select class="form-select" id="bill_type" name="bill_type" required onchange="toggleBillTypeFields()">
+                                    <option value="">Select Bill Type...</option>
+                                    <option value="maintenance">
+                                        <i class="fas fa-tools"></i> Maintenance Bills
+                                    </option>
+                                    <option value="water">
+                                        <i class="fas fa-tint"></i> Water Bills
+                                    </option>
+                                </select>
+                                <small class="form-text text-muted">
+                                    <i class="fas fa-info-circle"></i> Choose the type of bills to generate
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Maintenance Bills Information -->
+                    <div id="maintenanceInfo" style="display: none;">
+                        <div class="alert alert-success">
+                            <h6><i class="fas fa-info-circle"></i> Maintenance Bill Information</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <ul class="mb-0">
+                                        <li><strong>Fixed maintenance:</strong> ₹3,000 per house</li>
+                                        <li><strong>Due date:</strong> 15 days from generation date</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <ul class="mb-0">
+                                        <li><strong>Previous balance:</strong> Added automatically</li>
+                                        <li><strong>Target houses:</strong> All occupied houses</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Water Bills Specific Fields -->
+                    <div id="waterFields" style="display: none;">
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-info-circle"></i> Water Bill Information</h6>
+                            <p class="mb-0">
+                                Please enter the L&T water bill details for proportional calculation. 
+                                Individual consumption will be calculated based on meter readings.
+                                <i class="fas fa-question-circle help-icon ms-1" 
+                                   data-bs-toggle="tooltip" 
+                                   title="Make sure all meter readings are updated before generating water bills"></i>
+                            </p>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="lnt_main_meter" class="form-label">
+                                        L&T Main Meter Reading *
+                                        <i class="fas fa-question-circle help-icon" 
+                                           data-bs-toggle="tooltip" 
+                                           title="Total community water consumption reading from L&T bill"></i>
+                                    </label>
+                                    <div class="input-group">
+                                        <input type="number" step="0.01" class="form-control" id="lnt_main_meter" name="lnt_main_meter">
+                                        <span class="input-group-text">units</span>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        <i class="fas fa-tachometer-alt"></i> Total community water consumption reading
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="lnt_total_bill" class="form-label">
+                                        L&T Total Bill Amount *
+                                        <i class="fas fa-question-circle help-icon" 
+                                           data-bs-toggle="tooltip" 
+                                           title="Total amount charged by L&T/Acquabay for water supply"></i>
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">₹</span>
+                                        <input type="number" step="0.01" class="form-control" id="lnt_total_bill" name="lnt_total_bill">
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        <i class="fas fa-file-invoice"></i> Total amount from L&T/Acquabay bill
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="waste_water_charge" class="form-label">
+                                        Waste Water Charges
+                                        <i class="fas fa-question-circle help-icon" 
+                                           data-bs-toggle="tooltip" 
+                                           title="This amount will be distributed equally among all houses"></i>
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">₹</span>
+                                        <input type="number" step="0.01" class="form-control" id="waste_water_charge" name="waste_water_charge" value="0">
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        <i class="fas fa-recycle"></i> Will be distributed equally among all houses
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="repair_charge" class="form-label">
+                                        Repair Charges
+                                        <i class="fas fa-question-circle help-icon" 
+                                           data-bs-toggle="tooltip" 
+                                           title="This amount will be distributed equally among all houses"></i>
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">₹</span>
+                                        <input type="number" step="0.01" class="form-control" id="repair_charge" name="repair_charge" value="0">
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        <i class="fas fa-wrench"></i> Will be distributed equally among all houses
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <h6><i class="fas fa-calculator"></i> Water Bill Calculation Details</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <ul class="mb-0">
+                                        <li>Water charges: <strong>₹70 per unit</strong> of consumption</li>
+                                        <li>Maintenance addition: <strong>25%</strong> of water charges</li>
+                                        <li>Due date: <strong>15 days</strong> from generation</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <ul class="mb-0">
+                                        <li>Waste water & repair: <strong>Equal distribution</strong></li>
+                                        <li>Previous balance: <strong>Added automatically</strong></li>
+                                        <li>Meter readings: <strong>Must be current</strong></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg" id="generateBtn" disabled>
+                            <i class="fas fa-cogs"></i> Generate Bills
+                        </button>
+                        <button type="submit" name="preview_bills" value="1" class="btn btn-info btn-lg" id="previewBtn" style="display: none;">
+                            <i class="fas fa-eye"></i> Preview Water Bills
+                        </button>
+                        <a href="{{ url_for('bills') }}" class="btn btn-secondary btn-lg">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Enhanced Quick Stats Card -->
+    <div class="col-md-2">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-chart-pie"></i> Community Stats</h6>
+            </div>
+            <div class="card-body text-center">
+                <div class="mb-3">
+                    <h4 class="text-primary">50</h4>
+                    <small>Total Houses</small>
+                    <i class="fas fa-question-circle help-icon" 
+                       data-bs-toggle="tooltip" 
+                       title="Total number of houses in the community"></i>
+                </div>
+                <div class="mb-3">
+                    <h4 class="text-success">48</h4>
+                    <small>Occupied Houses</small>
+                    <i class="fas fa-question-circle help-icon" 
+                       data-bs-toggle="tooltip" 
+                       title="Houses marked as occupied will receive bills"></i>
+                </div>
+                <div class="mb-3">
+                    <h4 class="text-info">₹3,000</h4>
+                    <small>Fixed Maintenance</small>
+                    <i class="fas fa-question-circle help-icon" 
+                       data-bs-toggle="tooltip" 
+                       title="Standard maintenance fee per house per month"></i>
+                </div>
+                <div>
+                    <h4 class="text-warning">₹70</h4>
+                    <small>Water Rate/Unit</small>
+                    <i class="fas fa-question-circle help-icon" 
+                       data-bs-toggle="tooltip" 
+                       title="Rate charged per unit of water consumption"></i>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Help Card -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-lightbulb"></i> Quick Tips</h6>
+            </div>
+            <div class="card-body">
+                <small>
+                    <div class="mb-2">
+                        <i class="fas fa-check-circle text-success"></i>
+                        Check meter readings before water bills
+                    </div>
+                    <div class="mb-2">
+                        <i class="fas fa-check-circle text-success"></i>
+                        Verify L&T bill amounts carefully
+                    </div>
+                    <div class="mb-2">
+                        <i class="fas fa-check-circle text-success"></i>
+                        Use preview for water bills
+                    </div>
+                    <div>
+                        <i class="fas fa-check-circle text-success"></i>
+                        Bills cannot be deleted once generated
+                    </div>
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleBillTypeFields() {
+    const billType = document.getElementById('bill_type').value;
+    const waterFields = document.getElementById('waterFields');
+    const maintenanceInfo = document.getElementById('maintenanceInfo');
+    const lntMainMeter = document.getElementById('lnt_main_meter');
+    const lntTotalBill = document.getElementById('lnt_total_bill');
+    const generateBtn = document.getElementById('generateBtn');
+    const previewBtn = document.getElementById('previewBtn');
+    
+    console.log('Selected bill type:', billType);
+    
+    // Hide all sections first
+    waterFields.style.display = 'none';
+    maintenanceInfo.style.display = 'none';
+    previewBtn.style.display = 'none';
+    
+    if (billType === 'water') {
+        waterFields.style.display = 'block';
+        previewBtn.style.display = 'inline-block';
+        lntMainMeter.required = true;
+        lntTotalBill.required = true;
+        generateBtn.disabled = false;
+        generateBtn.innerHTML = '<i class="fas fa-cogs"></i> Generate Water Bills';
+        
+        // Add visual feedback
+        generateBtn.classList.remove('btn-primary');
+        generateBtn.classList.add('btn-info');
+    } else if (billType === 'maintenance') {
+        maintenanceInfo.style.display = 'block';
+        lntMainMeter.required = false;
+        lntTotalBill.required = false;
+        generateBtn.disabled = false;
+        generateBtn.innerHTML = '<i class="fas fa-cogs"></i> Generate Maintenance Bills';
+        
+        // Add visual feedback
+        generateBtn.classList.remove('btn-info');
+        generateBtn.classList.add('btn-primary');
+    } else {
+        lntMainMeter.required = false;
+        lntTotalBill.required = false;
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = '<i class="fas fa-cogs"></i> Select Bill Type First';
+        generateBtn.classList.remove('btn-info', 'btn-primary');
+        generateBtn.classList.add('btn-secondary');
+    }
+}
+
+// Enhanced form validation with visual feedback
+function validateBillForm() {
+    const billType = document.getElementById('bill_type').value;
+    const billingCycle = document.getElementById('billing_cycle').value;
+    
+    let isValid = true;
+    let errorMessage = '';
+    
+    // Clear previous validation states
+    document.querySelectorAll('.form-control, .form-select').forEach(input => {
+        input.classList.remove('is-valid', 'is-invalid');
+    });
+    
+    if (!billType) {
+        document.getElementById('bill_type').classList.add('is-invalid');
+        errorMessage = 'Please select a bill type';
+        isValid = false;
+    } else {
+        document.getElementById('bill_type').classList.add('is-valid');
+    }
+    
+    if (!billingCycle) {
+        document.getElementById('billing_cycle').classList.add('is-invalid');
+        errorMessage = errorMessage || 'Please select a billing cycle';
+        isValid = false;
+    } else {
+        document.getElementById('billing_cycle').classList.add('is-valid');
+    }
+    
+    if (billType === 'water') {
+        const lntMainMeter = document.getElementById('lnt_main_meter').value;
+        const lntTotalBill = document.getElementById('lnt_total_bill').value;
+        
+        if (!lntMainMeter) {
+            document.getElementById('lnt_main_meter').classList.add('is-invalid');
+            errorMessage = errorMessage || 'Please enter L&T main meter reading';
+            isValid = false;
+        } else {
+            document.getElementById('lnt_main_meter').classList.add('is-valid');
+        }
+        
+        if (!lntTotalBill) {
+            document.getElementById('lnt_total_bill').classList.add('is-invalid');
+            errorMessage = errorMessage || 'Please enter L&T total bill amount';
+            isValid = false;
+        } else {
+            document.getElementById('lnt_total_bill').classList.add('is-valid');
+        }
+    }
+    
+    if (!isValid) {
+        Swal.fire({
+            title: 'Validation Error',
+            text: errorMessage,
+            icon: 'error',
+            confirmButtonColor: '#dc2626'
+        });
+    }
+    
+    return isValid;
+}
+
+// Set current month as default with better date handling
+document.addEventListener('DOMContentLoaded', function() {
+    const now = new Date();
+    const currentMonth = now.toISOString().slice(0, 7);
+    document.getElementById('billing_cycle').value = currentMonth;
+    
+    // Add helpful date suggestion
+    const billingCycleInput = document.getElementById('billing_cycle');
+    billingCycleInput.addEventListener('change', function() {
+        const selectedDate = new Date(this.value + '-01');
+        const monthName = selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        
+        // Show confirmation of selected month
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'info',
+            title: `Bills will be generated for ${monthName}`,
+            showConfirmButton: false,
+            timer: 2000
+        });
+    });
+    
+    console.log('Page loaded, current month set to:', currentMonth);
+});
+
+// Enhanced form submission with confirmation
+document.getElementById('billGenerationForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    if (!validateBillForm()) {
+        return false;
+    }
+    
+    const billType = document.getElementById('bill_type').value;
+    const billingCycle = document.getElementById('billing_cycle').value;
+    const isPreview = document.activeElement.name === 'preview_bills';
+    
+    if (isPreview) {
+        // For preview, show loading and submit without confirmation
+        const submitBtn = document.querySelector('button[name="preview_bills"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating Preview...';
+        
+        // Create form data and submit
+        const formData = new FormData(this);
+        formData.append('preview_bills', '1'); // Ensure the preview flag is set
+        
+        try {
+            const response = await fetch(this.action || window.location.pathname, {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (response.ok) {
+                if (response.redirected) {
+                    // Redirect to preview page
+                    window.location.href = response.url;
+                } else {
+                    // Handle non-redirect response
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('text/html')) {
+                        // Replace current page content with preview
+                        const html = await response.text();
+                        document.documentElement.innerHTML = html;
+                    } else {
+                        window.location.href = '/bills';
+                    }
+                }
+            } else {
+                throw new Error('Server error');
+            }
+        } catch (error) {
+            console.error('Error generating preview:', error);
+            Swal.fire({
+                title: 'Error',
+                text: 'Failed to generate preview. Please try again.',
+                icon: 'error'
+            });
+            
+            // Restore button state
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
+        return;
+    }
+    
+    // For final generation, show detailed confirmation
+    const monthName = new Date(billingCycle + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    
+    let confirmText = '';
+    if (billType === 'maintenance') {
+        confirmText = `Generate maintenance bills for ${monthName}?\n\n` +
+                     `• Fixed amount: ₹3,000 per house\n` +
+                     `• Target: All occupied houses\n` +
+                     `• Previous balances will be included\n\n` +
+                     `This action cannot be undone.`;
+    } else if (billType === 'water') {
+        const lntAmount = document.getElementById('lnt_total_bill').value;
+        confirmText = `Generate water bills for ${monthName}?\n\n` +
+                     `• L&T Bill Amount: ₹${lntAmount}\n` +
+                     `• Rate: ₹70 per unit\n` +
+                     `• Based on individual meter readings\n\n` +
+                     `This action cannot be undone.`;
+    }
+    
+    const result = await Swal.fire({
+        title: 'Confirm Bill Generation',
+        text: confirmText,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#059669',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: `<i class="fas fa-check"></i> Yes, Generate Bills`,
+        cancelButtonText: 'Cancel',
+        reverseButtons: true,
+        width: '500px'
+    });
+    
+    if (result.isConfirmed) {
+        const submitBtn = document.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating Bills...';
+        
+        // Remove the event listener to prevent infinite loop
+        this.removeEventListener('submit', arguments.callee);
+        
+        // Submit the form normally
+        this.submit();
+    }
+});
+
+// Real-time validation feedback
+document.addEventListener('DOMContentLoaded', function() {
+    const inputs = document.querySelectorAll('#billGenerationForm input[required], #billGenerationForm select[required]');
+    
+    inputs.forEach(input => {
+        input.addEventListener('blur', function() {
+            if (this.value.trim()) {
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+            } else {
+                this.classList.remove('is-valid');
+                this.classList.add('is-invalid');
+            }
+        });
+        
+        input.addEventListener('input', function() {
+            if (this.classList.contains('is-invalid') && this.value.trim()) {
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+            }
+        });
+    });
+});
+
+// Calculate estimated amounts for water bills
+function calculateWaterEstimate() {
+    const lntTotalBill = parseFloat(document.getElementById('lnt_total_bill').value) || 0;
+    const wasteWater = parseFloat(document.getElementById('waste_water_charge').value) || 0;
+    const repairCharge = parseFloat(document.getElementById('repair_charge').value) || 0;
+    
+    if (lntTotalBill > 0) {
+        const estimatedPerHouse = (lntTotalBill + wasteWater + repairCharge) / 48; // Assuming 48 houses
+        
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'info',
+            title: `Estimated ₹${estimatedPerHouse.toFixed(2)} per house (average)`,
+            showConfirmButton: false,
+            timer: 3000
+        });
+    }
+}
+
+// Add event listeners for calculation
+document.addEventListener('DOMContentLoaded', function() {
+    const calculationInputs = ['lnt_total_bill', 'waste_water_charge', 'repair_charge'];
+    
+    calculationInputs.forEach(inputId => {
+        const input = document.getElementById(inputId);
+        if (input) {
+            input.addEventListener('blur', calculateWaterEstimate);
+        }
+    });
+});
+
+// Store original values for reset functionality
+let originalValues = {};
+
+// Initialize the page
+document.addEventListener('DOMContentLoaded', function() {
+    // Store original values for reset functionality
+    storeOriginalValues();
+    
+    // Add event listeners to all input fields for real-time calculation
+    addCalculationListeners();
+    
+    // Initialize tooltips if using Bootstrap
+    if (typeof bootstrap !== 'undefined') {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    }
+});
+
+// Store original values for reset functionality
+function storeOriginalValues() {
+    const inputs = document.querySelectorAll('input[type="number"]');
+    inputs.forEach(input => {
+        originalValues[input.id] = input.value;
+    });
+}
+
+// Reset All button functionality
+function resetAll() {
+    Swal.fire({
+        title: 'Reset All Values?',
+        text: 'This will restore all amounts to their originally calculated values.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Reset All',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Reset all input values
+            Object.keys(originalValues).forEach(inputId => {
+                const input = document.getElementById(inputId);
+                if (input) {
+                    input.value = originalValues[inputId];
+                    // Trigger change event to update calculations
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            });
+            
+            // Recalculate totals
+            recalculateAllTotals();
+            
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: 'All values have been reset',
+                showConfirmButton: false,
+                timer: 2000
+            });
+        }
+    });
+}
+
+// Bulk Adjust button functionality
+async function bulkAdjust() {
+    const { value: formValues } = await Swal.fire({
+        title: 'Bulk Adjustment',
+        html: `
+            <div class="mb-3">
+                <label for="adjustType" class="form-label">Adjustment Type</label>
+                <select id="adjustType" class="form-select">
+                    <option value="">Select adjustment type...</option>
+                    <option value="water_charge">Water Charges Only</option>
+                    <option value="water_maintenance">Water Maintenance Only</option>
+                    <option value="waste_water">Waste Water Charges Only</option>
+                    <option value="repair_charge">Repair Charges Only</option>
+                    <option value="all_charges">All Charges</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="adjustMethod" class="form-label">Adjustment Method</label>
+                <select id="adjustMethod" class="form-select">
+                    <option value="percentage">Percentage Change (%)</option>
+                    <option value="fixed">Fixed Amount (₹)</option>
+                    <option value="set">Set Fixed Value (₹)</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="adjustValue" class="form-label">Value</label>
+                <input type="number" id="adjustValue" class="form-control" step="0.01" placeholder="Enter value">
+                <small class="form-text text-muted">
+                    For percentage: use positive for increase, negative for decrease<br>
+                    For amounts: enter the amount to add/subtract or set
+                </small>
+            </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Apply Adjustment',
+        preConfirm: () => {
+            const adjustType = document.getElementById('adjustType').value;
+            const adjustMethod = document.getElementById('adjustMethod').value;
+            const adjustValue = parseFloat(document.getElementById('adjustValue').value);
+            
+            if (!adjustType) {
+                Swal.showValidationMessage('Please select adjustment type');
+                return false;
+            }
+            if (!adjustMethod) {
+                Swal.showValidationMessage('Please select adjustment method');
+                return false;
+            }
+            if (isNaN(adjustValue)) {
+                Swal.showValidationMessage('Please enter a valid value');
+                return false;
+            }
+            
+            return { adjustType, adjustMethod, adjustValue };
+        }
+    });
+    
+    if (formValues) {
+        applyBulkAdjustment(formValues.adjustType, formValues.adjustMethod, formValues.adjustValue);
+    }
+}
+
+// Apply bulk adjustment
+function applyBulkAdjustment(adjustType, adjustMethod, adjustValue) {
+    let affectedCount = 0;
+    const rows = document.querySelectorAll('tbody tr');
+    
+    rows.forEach(row => {
+        const houseId = row.dataset.houseId;
+        if (!houseId) return;
+        
+        let fieldsToAdjust = [];
+        
+        // Determine which fields to adjust
+        switch (adjustType) {
+            case 'water_charge':
+                fieldsToAdjust = [`water_charge_${houseId}`];
+                break;
+            case 'water_maintenance':
+                fieldsToAdjust = [`water_maintenance_${houseId}`];
+                break;
+            case 'waste_water':
+                fieldsToAdjust = [`waste_water_${houseId}`];
+                break;
+            case 'repair_charge':
+                fieldsToAdjust = [`repair_charge_${houseId}`];
+                break;
+            case 'all_charges':
+                fieldsToAdjust = [
+                    `water_charge_${houseId}`,
+                    `water_maintenance_${houseId}`,
+                    `waste_water_${houseId}`,
+                    `repair_charge_${houseId}`
+                ];
+                break;
+        }
+        
+        // Apply adjustment to each field
+        fieldsToAdjust.forEach(fieldId => {
+            const input = document.getElementById(fieldId);
+            if (input) {
+                const currentValue = parseFloat(input.value) || 0;
+                let newValue;
+                
+                switch (adjustMethod) {
+                    case 'percentage':
+                        newValue = currentValue + (currentValue * adjustValue / 100);
+                        break;
+                    case 'fixed':
+                        newValue = currentValue + adjustValue;
+                        break;
+                    case 'set':
+                        newValue = adjustValue;
+                        break;
+                }
+                
+                newValue = Math.max(0, newValue); // Ensure non-negative
+                input.value = newValue.toFixed(2);
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                affectedCount++;
+            }
+        });
+    });
+    
+    // Recalculate totals
+    recalculateAllTotals();
+    
+    Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: `Bulk adjustment applied to ${affectedCount} fields`,
+        showConfirmButton: false,
+        timer: 3000
+    });
+}
+
+// Individual house actions
+function editHouse(houseId) {
+    const row = document.querySelector(`tr[data-house-id="${houseId}"]`);
+    if (!row) return;
+    
+    const inputs = row.querySelectorAll('input[type="number"]');
+    const currentValues = {};
+    
+    inputs.forEach(input => {
+        currentValues[input.id] = input.value;
+    });
+    
+    Swal.fire({
+        title: `Edit House ${row.querySelector('td').textContent}`,
+        html: `
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Water Charge (₹)</label>
+                        <input type="number" id="edit_water_charge" class="form-control" 
+                               step="0.01" value="${currentValues[`water_charge_${houseId}`] || 0}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Water Maintenance (₹)</label>
+                        <input type="number" id="edit_water_maintenance" class="form-control" 
+                               step="0.01" value="${currentValues[`water_maintenance_${houseId}`] || 0}">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Waste Water (₹)</label>
+                        <input type="number" id="edit_waste_water" class="form-control" 
+                               step="0.01" value="${currentValues[`waste_water_${houseId}`] || 0}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Repair Charge (₹)</label>
+                        <input type="number" id="edit_repair_charge" class="form-control" 
+                               step="0.01" value="${currentValues[`repair_charge_${houseId}`] || 0}">
+                    </div>
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Update Values',
+        preConfirm: () => {
+            return {
+                water_charge: parseFloat(document.getElementById('edit_water_charge').value) || 0,
+                water_maintenance: parseFloat(document.getElementById('edit_water_maintenance').value) || 0,
+                waste_water: parseFloat(document.getElementById('edit_waste_water').value) || 0,
+                repair_charge: parseFloat(document.getElementById('edit_repair_charge').value) || 0
+            };
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const values = result.value;
+            
+            // Update the actual form inputs
+            document.getElementById(`water_charge_${houseId}`).value = values.water_charge.toFixed(2);
+            document.getElementById(`water_maintenance_${houseId}`).value = values.water_maintenance.toFixed(2);
+            document.getElementById(`waste_water_${houseId}`).value = values.waste_water.toFixed(2);
+            document.getElementById(`repair_charge_${houseId}`).value = values.repair_charge.toFixed(2);
+            
+            // Trigger recalculation for this row
+            updateRowTotal(houseId);
+            recalculateGrandTotal();
+            
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: 'House values updated successfully',
+                showConfirmButton: false,
+                timer: 2000
+            });
+        }
+    });
+}
+
+// Reset individual house to original values
+function resetHouse(houseId) {
+    Swal.fire({
+        title: 'Reset House Values?',
+        text: 'This will restore this house\'s values to original calculated amounts.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Reset',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Reset house values to original
+            const fields = ['water_charge', 'water_maintenance', 'waste_water', 'repair_charge'];
+            
+            fields.forEach(field => {
+                const inputId = `${field}_${houseId}`;
+                const input = document.getElementById(inputId);
+                if (input && originalValues[inputId]) {
+                    input.value = originalValues[inputId];
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            });
+            
+            // Update row total
+            updateRowTotal(houseId);
+            recalculateGrandTotal();
+            
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: 'House values reset successfully',
+                showConfirmButton: false,
+                timer: 2000
+            });
+        }
+    });
+}
+
+// Add calculation listeners to all input fields
+function addCalculationListeners() {
+    const inputs = document.querySelectorAll('input[type="number"]');
+    inputs.forEach(input => {
+        input.addEventListener('input', function() {
+            const inputId = this.id;
+            const houseId = inputId.split('_').pop();
+            
+            // Update row total for this house
+            updateRowTotal(houseId);
+            
+            // Update grand total
+            recalculateGrandTotal();
+        });
+        
+        // Add validation
+        input.addEventListener('blur', function() {
+            const value = parseFloat(this.value) || 0;
+            if (value < 0) {
+                this.value = '0.00';
+                this.dispatchEvent(new Event('input', { bubbles: true }));
+            } else {
+                this.value = value.toFixed(2);
+            }
+        });
+    });
+}
+
+// Update total for a specific row
+function updateRowTotal(houseId) {
+    const waterCharge = parseFloat(document.getElementById(`water_charge_${houseId}`).value) || 0;
+    const waterMaintenance = parseFloat(document.getElementById(`water_maintenance_${houseId}`).value) || 0;
+    const wasteWater = parseFloat(document.getElementById(`waste_water_${houseId}`).value) || 0;
+    const repairCharge = parseFloat(document.getElementById(`repair_charge_${houseId}`).value) || 0;
+    const previousBalance = parseFloat(document.getElementById(`previous_balance_${houseId}`).value) || 0;
+    
+    const additionalAmount = waterCharge + waterMaintenance + wasteWater + repairCharge;
+    const totalDue = additionalAmount + previousBalance;
+    
+    // Update display elements
+    const additionalCell = document.querySelector(`#additional_amount_${houseId}`);
+    const totalCell = document.querySelector(`#total_due_${houseId}`);
+    
+    if (additionalCell) additionalCell.textContent = `₹${additionalAmount.toFixed(2)}`;
+    if (totalCell) totalCell.textContent = `₹${totalDue.toFixed(2)}`;
+    
+    // Update hidden form fields
+    document.getElementById(`additional_amount_${houseId}`).value = additionalAmount.toFixed(2);
+    document.getElementById(`total_due_${houseId}`).value = totalDue.toFixed(2);
+}
+
+// Recalculate all row totals
+function recalculateAllTotals() {
+    const rows = document.querySelectorAll('tbody tr[data-house-id]');
+    rows.forEach(row => {
+        const houseId = row.dataset.houseId;
+        updateRowTotal(houseId);
+    });
+    
+    recalculateGrandTotal();
+}
+
+// Recalculate grand total
+function recalculateGrandTotal() {
+    let totalAdditional = 0;
+    let totalDue = 0;
+    
+    const rows = document.querySelectorAll('tbody tr[data-house-id]');
+    rows.forEach(row => {
+        const houseId = row.dataset.houseId;
+        const additional = parseFloat(document.getElementById(`additional_amount_${houseId}`).value) || 0;
+        const total = parseFloat(document.getElementById(`total_due_${houseId}`).value) || 0;
+        
+        totalAdditional += additional;
+        totalDue += total;
+    });
+    
+    // Update summary row if it exists
+    const summaryAdditional = document.getElementById('summary_additional_amount');
+    const summaryTotal = document.getElementById('summary_total_due');
+    
+    if (summaryAdditional) summaryAdditional.textContent = `₹${totalAdditional.toFixed(2)}`;
+    if (summaryTotal) summaryTotal.textContent = `₹${totalDue.toFixed(2)}`;
+}
+
+// Generate final bills
+function generateFinalBills() {
+    Swal.fire({
+        title: 'Generate Final Water Bills?',
+        text: 'This will create the actual water bills with the current values. This action cannot be undone.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#059669',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Yes, Generate Bills',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Show loading
+            Swal.fire({
+                title: 'Generating Bills...',
+                text: 'Please wait while the bills are being created.',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            // Submit the form
+            document.getElementById('finalBillForm').submit();
+        }
+    });
+}
+</script>
+{% endblock %}

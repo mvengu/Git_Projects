@@ -1,0 +1,40 @@
+<!-- templates/add_announcement.html -->
+{% extends "base.html" %}
+
+{% block title %}Add Announcement - Community Management{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-bullhorn"></i> New Announcement</h1>
+    <p>Post a new announcement to the community</p>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="title" class="form-label">Title *</label>
+                        <input type="text" class="form-control" id="title" name="title" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="content" class="form-label">Content *</label>
+                        <textarea class="form-control" id="content" name="content" rows="6" required></textarea>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-paper-plane"></i> Post Announcement
+                        </button>
+                        <a href="{{ url_for('announcements') }}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

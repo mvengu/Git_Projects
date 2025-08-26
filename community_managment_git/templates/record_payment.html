@@ -1,0 +1,128 @@
+<!-- templates/record_payment.html -->
+{% extends "base.html" %}
+
+{% block title %}Record Payment - Community Management{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-credit-card"></i> Record Payment</h1>
+    <p>Record a new payment from resident</p>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="house_id" class="form-label">Select House *</label>
+                                <select class="form-select" id="house_id" name="house_id" required onchange="loadHouseBills()">
+                                    <option value="">Choose a house...</option>
+                                    {% for house in houses %}
+                                    <option value="{{ house.id }}">{{ house.house_number }} - {{ house.owner_name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="bill_id" class="form-label">Select Bill *</label>
+                                <select class="form-select" id="bill_id" name="bill_id" required>
+                                    <option value="">First select a house...</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="amount_paid" class="form-label">Amount Paid *</label>
+                                <input type="number" step="0.01" class="form-control" id="amount_paid" name="amount_paid" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="payment_date" class="form-label">Payment Date *</label>
+                                <input type="date" class="form-control" id="payment_date" name="payment_date" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="payment_method" class="form-label">Payment Method</label>
+                                <select class="form-select" id="payment_method" name="payment_method">
+                                    <option value="cash">Cash</option>
+                                    <option value="bank_transfer">Bank Transfer</option>
+                                    <option value="upi">UPI</option>
+                                    <option value="cheque">Cheque</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="transaction_id" class="form-label">Transaction ID</label>
+                                <input type="text" class="form-control" id="transaction_id" name="transaction_id">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Record Payment
+                        </button>
+                        <a href="{{ url_for('payments') }}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function loadHouseBills() {
+    const houseId = document.getElementById('house_id').value;
+    const billSelect = document.getElementById('bill_id');
+    
+    if (!houseId) {
+        billSelect.innerHTML = '<option value="">First select a house...</option>';
+        return;
+    }
+    
+    billSelect.innerHTML = '<option value="">Loading...</option>';
+    
+    fetch(`/api/house_bills/${houseId}`)
+        .then(response => response.json())
+        .then(bills => {
+            billSelect.innerHTML = '<option value="">Choose a bill...</option>';
+            bills.forEach(bill => {
+                const option = document.createElement('option');
+                option.value = bill.id;
+                option.textContent = `${bill.bill_type.toUpperCase()} - ${bill.billing_cycle} - ₹${bill.current_balance.toFixed(2)} due`;
+                billSelect.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading bills:', error);
+            billSelect.innerHTML = '<option value="">Error loading bills</option>';
+        });
+}
+
+// Set today's date as default
+document.getElementById('payment_date').value = new Date().toISOString().split('T')[0];
+</script>
+{% endblock %}

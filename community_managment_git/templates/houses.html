@@ -1,0 +1,416 @@
+<!-- templates/houses.html -->
+{% extends "base.html" %}
+
+{% block title %}Houses - Community Management{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item active" aria-current="page">
+    <i class="fas fa-home"></i> Houses
+</li>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="fas fa-home"></i> Houses Management</h1>
+        <p>Manage all houses in the community</p>
+    </div>
+    <div>
+        {% if session.user_role == 'admin' %}
+        <button class="btn btn-outline-success me-2" onclick="exportToExcel()" data-bs-toggle="tooltip" title="Export houses data to Excel">
+            <i class="fas fa-file-excel"></i> Export
+        </button>
+        <a href="{{ url_for('add_house') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add House
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Quick Stats -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="quick-stats">
+            <h6>Total Houses</h6>
+            <div class="stat-value">{{ houses|length }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="quick-stats success">
+            <h6>Occupied</h6>
+            <div class="stat-value">{{ houses|selectattr('status', 'equalto', 'occupied')|list|length }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="quick-stats warning">
+            <h6>Vacant</h6>
+            <div class="stat-value">{{ houses|selectattr('status', 'equalto', 'vacant')|list|length }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="quick-stats info">
+            <h6>With Contact</h6>
+            <div class="stat-value">{{ houses|selectattr('contact_number')|list|length }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Search and Filter Section -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" id="searchInput" placeholder="Search houses by number, owner name, or contact..." onkeyup="filterHouses()">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="statusFilter" onchange="filterHouses()">
+                    <option value="all">All Status</option>
+                    <option value="occupied">Occupied</option>
+                    <option value="vacant">Vacant</option>
+                </select>
+            </div>
+            <div class="col-md-3 text-end">
+                <button class="btn btn-outline-secondary" onclick="clearFilters()" data-bs-toggle="tooltip" title="Clear all filters">
+                    <i class="fas fa-times"></i> Clear
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table" id="housesTable">
+                <thead>
+                    <tr>
+                        <th onclick="sortTable(0)" style="cursor: pointer;">
+                            House Number <i class="fas fa-sort text-muted"></i>
+                        </th>
+                        <th onclick="sortTable(1)" style="cursor: pointer;">
+                            Owner Name <i class="fas fa-sort text-muted"></i>
+                        </th>
+                        <th>Contact</th>
+                        <th>Email</th>
+                        <th onclick="sortTable(4)" style="cursor: pointer;">
+                            Status <i class="fas fa-sort text-muted"></i>
+                        </th>
+                        {% if session.user_role == 'admin' %}
+                        <th>Actions</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for house in houses %}
+                    <tr>
+                        <td><strong>{{ house.house_number }}</strong></td>
+                        <td>{{ house.owner_name }}</td>
+                        <td>
+                            {% if house.contact_number %}
+                                <span onclick="copyToClipboard('{{ house.contact_number }}', 'Contact number copied!')" 
+                                      style="cursor: pointer;" data-bs-toggle="tooltip" title="Click to copy">
+                                    {{ house.contact_number }} <i class="fas fa-copy text-muted"></i>
+                                </span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if house.email %}
+                                <a href="mailto:{{ house.email }}" data-bs-toggle="tooltip" title="Send email">
+                                    {{ house.email }} <i class="fas fa-envelope text-muted"></i>
+                                </a>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ 'success' if house.status == 'occupied' else 'secondary' }}">
+                                <i class="fas fa-{{ 'check' if house.status == 'occupied' else 'times' }}"></i>
+                                {{ house.status.title() }}
+                            </span>
+                        </td>
+                        {% if session.user_role == 'admin' %}
+                        <td>
+                            <div class="btn-group" role="group">
+                                <a href="{{ url_for('edit_house', house_id=house.id) }}" 
+                                   class="btn btn-sm btn-outline-primary"
+                                   data-bs-toggle="tooltip" title="Edit house details">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-info" 
+                                        onclick="viewHouseDetails({{ house.id }})"
+                                        data-bs-toggle="tooltip" title="View house details">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                        onclick="deleteHouse({{ house.id }}, '{{ house.house_number }}')"
+                                        data-bs-toggle="tooltip" title="Delete house">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if not houses %}
+        <div class="text-center py-5">
+            <i class="fas fa-home fa-3x text-muted mb-3"></i>
+            <h4 class="text-muted">No Houses Found</h4>
+            <p class="text-muted">
+                {% if session.user_role == 'admin' %}
+                    No houses have been added yet. Start by adding the first house.
+                    <br><a href="{{ url_for('add_house') }}" class="btn btn-primary mt-2">
+                        <i class="fas fa-plus"></i> Add First House
+                    </a>
+                {% else %}
+                    No houses available to view.
+                {% endif %}
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- House Details Modal -->
+<div class="modal fade" id="houseDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-home"></i> House Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="houseDetailsContent">
+                <!-- House details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Search and filter functionality
+function filterHouses() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const statusFilter = document.getElementById('statusFilter').value;
+    const table = document.getElementById('housesTable');
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const houseNumber = row.cells[0].textContent.toLowerCase();
+        const ownerName = row.cells[1].textContent.toLowerCase();
+        const contact = row.cells[2].textContent.toLowerCase();
+        const status = row.cells[4].textContent.toLowerCase();
+
+        const matchesSearch = houseNumber.includes(searchTerm) || 
+                            ownerName.includes(searchTerm) || 
+                            contact.includes(searchTerm);
+        const matchesStatus = statusFilter === 'all' || status.includes(statusFilter);
+
+        if (matchesSearch && matchesStatus) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    }
+
+    // Update visible count
+    updateVisibleCount();
+}
+
+function clearFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('statusFilter').value = 'all';
+    filterHouses();
+}
+
+function updateVisibleCount() {
+    const table = document.getElementById('housesTable');
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    let visibleCount = 0;
+    
+    for (let i = 0; i < rows.length; i++) {
+        if (rows[i].style.display !== 'none') {
+            visibleCount++;
+        }
+    }
+    
+    // Update the quick stats if needed
+    console.log(`Showing ${visibleCount} of ${rows.length} houses`);
+}
+
+// Table sorting functionality
+function sortTable(columnIndex) {
+    const table = document.getElementById('housesTable');
+    const tbody = table.getElementsByTagName('tbody')[0];
+    const rows = Array.from(tbody.getElementsByTagName('tr'));
+    
+    // Determine sort direction
+    const currentSort = table.getAttribute('data-sort-column');
+    const currentDirection = table.getAttribute('data-sort-direction') || 'asc';
+    const newDirection = (currentSort == columnIndex && currentDirection === 'asc') ? 'desc' : 'asc';
+    
+    // Sort rows
+    rows.sort((a, b) => {
+        const aValue = a.cells[columnIndex].textContent.trim().toLowerCase();
+        const bValue = b.cells[columnIndex].textContent.trim().toLowerCase();
+        
+        if (newDirection === 'asc') {
+            return aValue.localeCompare(bValue);
+        } else {
+            return bValue.localeCompare(aValue);
+        }
+    });
+    
+    // Update table
+    rows.forEach(row => tbody.appendChild(row));
+    
+    // Update sort indicators
+    table.setAttribute('data-sort-column', columnIndex);
+    table.setAttribute('data-sort-direction', newDirection);
+    
+    // Update sort icons
+    const headers = table.querySelectorAll('th i.fa-sort, th i.fa-sort-up, th i.fa-sort-down');
+    headers.forEach(icon => {
+        icon.className = 'fas fa-sort text-muted';
+    });
+    
+    const currentHeader = table.querySelectorAll('th')[columnIndex].querySelector('i');
+    if (currentHeader) {
+        currentHeader.className = `fas fa-sort-${newDirection === 'asc' ? 'up' : 'down'} text-primary`;
+    }
+}
+
+// View house details
+function viewHouseDetails(houseId) {
+    // In a real implementation, this would fetch from the server
+    // For now, we'll use mock data
+    document.getElementById('houseDetailsContent').innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <h6><i class="fas fa-info-circle"></i> Basic Information</h6>
+                <p><strong>House ID:</strong> ${houseId}</p>
+                <p><strong>Registration Date:</strong> ${formatDate(new Date())}</p>
+                <p><strong>Last Updated:</strong> ${formatDate(new Date())}</p>
+            </div>
+            <div class="col-md-6">
+                <h6><i class="fas fa-chart-line"></i> Quick Stats</h6>
+                <p><strong>Total Bills:</strong> <span class="badge bg-info">0</span></p>
+                <p><strong>Outstanding Amount:</strong> <span class="badge bg-warning">₹0.00</span></p>
+                <p><strong>Last Payment:</strong> <span class="text-muted">No payments yet</span></p>
+            </div>
+        </div>
+        <hr>
+        <div class="alert alert-info">
+            <i class="fas fa-lightbulb"></i>
+            <strong>Tip:</strong> Detailed house analytics and billing history can be found in the Reports section.
+        </div>
+    `;
+    new bootstrap.Modal(document.getElementById('houseDetailsModal')).show();
+}
+
+// Delete house with confirmation
+async function deleteHouse(houseId, houseNumber) {
+    const result = await confirmDelete(houseNumber, 'house');
+    if (result.isConfirmed) {
+        showLoading('Deleting house...');
+        
+        // Create a form and submit it
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/houses/${houseId}/delete`;
+        
+        // Add CSRF token if available
+        const csrfToken = document.querySelector('meta[name="csrf-token"]');
+        if (csrfToken) {
+            const tokenInput = document.createElement('input');
+            tokenInput.type = 'hidden';
+            tokenInput.name = 'csrf_token';
+            tokenInput.value = csrfToken.content;
+            form.appendChild(tokenInput);
+        }
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+// Export to Excel functionality
+function exportToExcel() {
+    showLoading('Preparing export...');
+    
+    const table = document.getElementById('housesTable');
+    const data = [];
+    
+    // Get headers
+    const headers = [];
+    const headerRow = table.querySelector('thead tr');
+    for (let i = 0; i < headerRow.cells.length - 1; i++) { // Exclude actions column
+        headers.push(headerRow.cells[i].textContent.replace(/\s+/g, ' ').trim());
+    }
+    data.push(headers);
+    
+    // Get data rows (only visible ones)
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        if (row.style.display !== 'none') {
+            const rowData = [];
+            for (let i = 0; i < row.cells.length - 1; i++) { // Exclude actions column
+                rowData.push(row.cells[i].textContent.replace(/\s+/g, ' ').trim());
+            }
+            data.push(rowData);
+        }
+    });
+    
+    // Create CSV content
+    const csvContent = data.map(row => 
+        row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+    
+    // Download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `houses_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    hideLoading();
+    
+    Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: 'Houses data exported successfully!',
+        showConfirmButton: false,
+        timer: 3000
+    });
+}
+
+// Real-time search
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    let searchTimeout;
+    
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(filterHouses, 300); // Debounce search
+    });
+});
+</script>
+{% endblock %}

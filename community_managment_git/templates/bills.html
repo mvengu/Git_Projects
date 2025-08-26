@@ -1,0 +1,742 @@
+<!-- templates/bills.html -->
+{% extends "base.html" %}
+
+{% block title %}Bills - Community Management{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item active" aria-current="page">
+    <i class="fas fa-file-invoice-dollar"></i> Bills
+</li>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="fas fa-file-invoice-dollar"></i> {{ 'Bills Management' if user_role == 'admin' else 'My Bills' }}</h1>
+        <p>{{ 'Manage all community bills and invoices' if user_role == 'admin' else 'View your bills and payment status' }}</p>
+    </div>
+    <div>
+        <button class="btn btn-outline-success me-2" onclick="exportBills()" data-bs-toggle="tooltip" title="Export bills to Excel">
+            <i class="fas fa-file-excel"></i> Export
+        </button>
+        {% if user_role == 'admin' %}
+        <a href="{{ url_for('generate_bills') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Generate Bills
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Quick Stats Widgets -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="quick-stats">
+            <h6>Total Bills</h6>
+            <div class="stat-value">{{ pagination.total }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="quick-stats success">
+            <h6>Paid Bills</h6>
+            <div class="stat-value">{{ bills|selectattr('status', 'equalto', 'paid')|list|length }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="quick-stats warning">
+            <h6>Pending</h6>
+            <div class="stat-value">{{ bills|selectattr('status', 'equalto', 'pending')|list|length }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="quick-stats" style="background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);">
+            <h6>Overdue</h6>
+            <div class="stat-value">{{ bills|selectattr('status', 'equalto', 'overdue')|list|length }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Filter Section -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row align-items-center">
+            <div class="col-md-4">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" id="searchInput" placeholder="Search by house number or owner..." onkeyup="filterBills()">
+                </div>
+            </div>
+            <div class="col-md-2">
+                <label for="billTypeFilter" class="form-label">Bill Type:</label>
+                <select class="form-select" id="billTypeFilter" onchange="applyFilters()">
+                    <option value="all" {% if current_filter == 'all' %}selected{% endif %}>All Bills</option>
+                    <option value="maintenance" {% if current_filter == 'maintenance' %}selected{% endif %}>Maintenance</option>
+                    <option value="water" {% if current_filter == 'water' %}selected{% endif %}>Water</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="yearFilter" class="form-label">Year:</label>
+                <select class="form-select" id="yearFilter" onchange="applyFilters()">
+                    <option value="all" {% if current_year == 'all' %}selected{% endif %}>All Years</option>
+                    {% for year in available_years %}
+                    <option value="{{ year.year }}" {% if current_year == year.year|string %}selected{% endif %}>{{ year.year }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="statusFilter" class="form-label">Status:</label>
+                <select class="form-select" id="statusFilter" onchange="filterBills()">
+                    <option value="all">All Status</option>
+                    <option value="paid">Paid</option>
+                    <option value="pending">Pending</option>
+                    <option value="overdue">Overdue</option>
+                    <option value="partially_paid">Partial</option>
+                </select>
+            </div>
+            <div class="col-md-2 text-end">
+                <button class="btn btn-outline-secondary" onclick="clearAllFilters()" data-bs-toggle="tooltip" title="Clear all filters">
+                    <i class="fas fa-times"></i> Clear
+                </button>
+            </div>
+        </div>
+        
+        <!-- Filter summary -->
+        <div class="row mt-3">
+            <div class="col-12">
+                <small class="text-muted">
+                    <i class="fas fa-info-circle"></i>
+                    Showing <span id="visibleCount">{{ bills|length }}</span> of {{ pagination.total }} bills
+                    {% if current_filter != 'all' %}• Filter: {{ current_filter|title }}{% endif %}
+                    {% if current_year != 'all' %}• Year: {{ current_year }}{% endif %}
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if bills %}
+        <div class="table-responsive">
+            <table class="table" id="billsTable">
+                <thead>
+                    <tr>
+                        {% if user_role == 'admin' %}
+                        <th onclick="sortBillsTable(0)" style="cursor: pointer;">
+                            House <i class="fas fa-sort text-muted"></i>
+                        </th>
+                        {% endif %}
+                        <th onclick="sortBillsTable({{ '1' if user_role == 'admin' else '0' }})" style="cursor: pointer;">
+                            Bill Type <i class="fas fa-sort text-muted"></i>
+                        </th>
+                        <th onclick="sortBillsTable({{ '2' if user_role == 'admin' else '1' }})" style="cursor: pointer;">
+                            Billing Cycle <i class="fas fa-sort text-muted"></i>
+                        </th>
+                        <th>Generation Date</th>
+                        <th>Due Date 
+                            <i class="fas fa-question-circle help-icon" 
+                               data-bs-toggle="tooltip" 
+                               title="Bills are typically due 15 days after generation"></i>
+                        </th>
+                        <th onclick="sortBillsTable({{ '5' if user_role == 'admin' else '4' }})" style="cursor: pointer;">
+                            Total Due <i class="fas fa-sort text-muted"></i>
+                        </th>
+                        <th>Paid</th>
+                        <th onclick="sortBillsTable({{ '7' if user_role == 'admin' else '6' }})" style="cursor: pointer;">
+                            Balance <i class="fas fa-sort text-muted"></i>
+                        </th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for bill in bills %}
+                    <tr data-status="{{ bill.status }}" data-bill-type="{{ bill.bill_type }}">
+                        {% if user_role == 'admin' %}
+                        <td>
+                            <strong>{{ bill.house_number }}</strong><br>
+                            <small class="text-muted">{{ bill.owner_name }}</small>
+                        </td>
+                        {% endif %}
+                        <td>
+                            {% if bill.bill_type == 'maintenance' %}
+                                <span class="badge bg-success"><i class="fas fa-tools"></i> Maintenance</span>
+                            {% elif bill.bill_type == 'water' %}
+                                <span class="badge bg-info"><i class="fas fa-tint"></i> Water</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ bill.bill_type|title }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <strong>{{ bill.billing_cycle }}</strong>
+                            <i class="fas fa-copy text-muted ms-1" style="cursor: pointer;" 
+                               onclick="copyToClipboard('{{ bill.billing_cycle }}')" 
+                               data-bs-toggle="tooltip" title="Copy billing cycle"></i>
+                        </td>
+                        <td>{{ bill.generation_date }}</td>
+                        <td>
+                            <span class="{% if bill.status == 'overdue' %}text-danger{% else %}text-muted{% endif %}">
+                                {{ bill.due_date }}
+                                {% if bill.status == 'overdue' %}
+                                    <i class="fas fa-exclamation-triangle text-danger ms-1" 
+                                       data-bs-toggle="tooltip" title="This bill is overdue"></i>
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <strong>₹{{ "%.2f"|format(bill.total_amount_due) }}</strong>
+                            <i class="fas fa-copy text-muted ms-1" style="cursor: pointer;" 
+                               onclick="copyToClipboard('{{ bill.total_amount_due }}')" 
+                               data-bs-toggle="tooltip" title="Copy amount"></i>
+                        </td>
+                        <td>₹{{ "%.2f"|format(bill.total_amount_paid) }}</td>
+                        <td>
+                            <strong class="{% if bill.current_balance > 0 %}text-danger{% else %}text-success{% endif %}">
+                                ₹{{ "%.2f"|format(bill.current_balance) }}
+                            </strong>
+                        </td>
+                        <td>
+                            {% if bill.status == 'paid' %}
+                                <span class="badge bg-success"><i class="fas fa-check"></i> Paid</span>
+                            {% elif bill.status == 'partially_paid' %}
+                                <span class="badge bg-warning"><i class="fas fa-clock"></i> Partial</span>
+                            {% elif bill.status == 'overdue' %}
+                                <span class="badge bg-danger"><i class="fas fa-exclamation-triangle"></i> Overdue</span>
+                            {% else %}
+                                <span class="badge bg-secondary"><i class="fas fa-hourglass-half"></i> Pending</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-sm btn-outline-info" onclick="viewBillDetails({{ bill.id }})"
+                                        data-bs-toggle="tooltip" title="View bill details">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-success" onclick="printBill({{ bill.id }})"
+                                        data-bs-toggle="tooltip" title="Print bill">
+                                    <i class="fas fa-print"></i>
+                                </button>
+                                {% if user_role == 'admin' and bill.current_balance > 0 %}
+                                <button class="btn btn-sm btn-outline-primary" onclick="recordQuickPayment({{ bill.id }})"
+                                        data-bs-toggle="tooltip" title="Record payment">
+                                    <i class="fas fa-credit-card"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-file-invoice fa-3x text-muted mb-3"></i>
+            <h4 class="text-muted">No Bills Found</h4>
+            <p class="text-muted">
+                {% if user_role == 'admin' %}
+                    No bills have been generated yet. Start by generating bills for a billing cycle.
+                    <br><a href="{{ url_for('generate_bills') }}" class="btn btn-primary mt-2">
+                        <i class="fas fa-plus"></i> Generate First Bills
+                    </a>
+                {% else %}
+                    No bills have been generated for your house yet.
+                {% endif %}
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Enhanced Pagination -->
+{% if pagination.pages > 1 %}
+<div class="d-flex justify-content-between align-items-center mt-4">
+    <div>
+        <small class="text-muted">
+            <i class="fas fa-info-circle"></i>
+            Showing {{ ((pagination.page - 1) * pagination.per_page + 1) }} to 
+            {{ (pagination.page * pagination.per_page) if pagination.page < pagination.pages else pagination.total }} 
+            of {{ pagination.total }} records
+        </small>
+    </div>
+    <nav>
+        <ul class="pagination">
+            {% if pagination.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('bills', bill_type=current_filter, year=current_year, page=pagination.prev_num) }}">
+                    <i class="fas fa-chevron-left"></i> Previous
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link"><i class="fas fa-chevron-left"></i> Previous</span>
+            </li>
+            {% endif %}
+            
+            {% for page_num in range(1, pagination.pages + 1) %}
+                {% if page_num == pagination.page %}
+                <li class="page-item active">
+                    <span class="page-link">{{ page_num }}</span>
+                </li>
+                {% elif page_num == 1 or page_num == pagination.pages or (page_num >= pagination.page - 2 and page_num <= pagination.page + 2) %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('bills', bill_type=current_filter, year=current_year, page=page_num) }}">{{ page_num }}</a>
+                </li>
+                {% elif page_num == pagination.page - 3 or page_num == pagination.page + 3 %}
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if pagination.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('bills', bill_type=current_filter, year=current_year, page=pagination.next_num) }}">
+                    Next <i class="fas fa-chevron-right"></i>
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">Next <i class="fas fa-chevron-right"></i></span>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+{% endif %}
+
+<!-- Enhanced Bill Details Modal -->
+<div class="modal fade" id="billDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-file-invoice-dollar"></i> Bill Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="billDetailsContent">
+                <!-- Bill details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-primary" onclick="printCurrentBill()">
+                    <i class="fas fa-print"></i> Print
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Payment Modal -->
+{% if user_role == 'admin' %}
+<div class="modal fade" id="quickPaymentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-credit-card"></i> Quick Payment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="quickPaymentForm" data-no-loading="true">
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        Recording payment for <strong id="quickPaymentBillInfo"></strong>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="quickAmount" class="form-label">Amount Paid *</label>
+                                <input type="number" step="0.01" class="form-control" id="quickAmount" required>
+                                <small class="form-text text-muted">Outstanding: ₹<span id="outstandingAmount"></span></small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="quickPaymentDate" class="form-label">Payment Date *</label>
+                                <input type="date" class="form-control" id="quickPaymentDate" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="quickPaymentMethod" class="form-label">Payment Method</label>
+                                <select class="form-select" id="quickPaymentMethod">
+                                    <option value="cash">Cash</option>
+                                    <option value="bank_transfer">Bank Transfer</option>
+                                    <option value="upi">UPI</option>
+                                    <option value="cheque">Cheque</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="quickTransactionId" class="form-label">Transaction ID</label>
+                                <input type="text" class="form-control" id="quickTransactionId">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="quickNotes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="quickNotes" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Record Payment
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Enhanced search and filter functionality
+function filterBills() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const statusFilter = document.getElementById('statusFilter').value;
+    const table = document.getElementById('billsTable');
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    let visibleCount = 0;
+
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        let searchMatch = true;
+        let statusMatch = true;
+
+        // Search match
+        if (searchTerm) {
+            const rowText = row.textContent.toLowerCase();
+            searchMatch = rowText.includes(searchTerm);
+        }
+
+        // Status match
+        if (statusFilter !== 'all') {
+            const rowStatus = row.getAttribute('data-status');
+            statusMatch = rowStatus === statusFilter;
+        }
+
+        if (searchMatch && statusMatch) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    }
+
+    document.getElementById('visibleCount').textContent = visibleCount;
+}
+
+function applyFilters() {
+    const billType = document.getElementById('billTypeFilter').value;
+    const year = document.getElementById('yearFilter').value;
+    const url = new URL(window.location);
+    url.searchParams.set('bill_type', billType);
+    url.searchParams.set('year', year);
+    url.searchParams.delete('page');
+    
+    showLoading('Applying filters...');
+    window.location.href = url.toString();
+}
+
+function clearAllFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('statusFilter').value = 'all';
+    filterBills();
+}
+
+// Enhanced bill details view
+function viewBillDetails(billId) {
+    const billRow = event.target.closest('tr');
+    const cells = billRow.querySelectorAll('td');
+    
+    // Extract bill data from the row (simplified for demo)
+    const houseInfo = cells[0]?.textContent.trim() || 'N/A';
+    const billType = cells[1]?.textContent.trim() || 'N/A';
+    const billingCycle = cells[2]?.textContent.trim() || 'N/A';
+    const totalDue = cells[5]?.textContent.trim() || '₹0.00';
+    const balance = cells[7]?.textContent.trim() || '₹0.00';
+    const status = cells[8]?.textContent.trim() || 'Unknown';
+
+    document.getElementById('billDetailsContent').innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card border-primary">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0"><i class="fas fa-info-circle"></i> Bill Information</h6>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Bill ID:</strong> ${billId}</p>
+                        <p><strong>House:</strong> ${houseInfo}</p>
+                        <p><strong>Bill Type:</strong> ${billType}</p>
+                        <p><strong>Billing Cycle:</strong> ${billingCycle}</p>
+                        <p><strong>Status:</strong> ${status}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-success">
+                    <div class="card-header bg-success text-white">
+                        <h6 class="mb-0"><i class="fas fa-rupee-sign"></i> Amount Details</h6>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Total Due:</strong> ${totalDue}</p>
+                        <p><strong>Outstanding Balance:</strong> <span class="text-danger">${balance}</span></p>
+                        <p><strong>Due Date:</strong> ${cells[4]?.textContent.trim() || 'N/A'}</p>
+                        <p><strong>Generation Date:</strong> ${cells[3]?.textContent.trim() || 'N/A'}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <hr>
+        <div class="row">
+            <div class="col-12">
+                <h6><i class="fas fa-list"></i> Detailed Breakdown</h6>
+                <div class="alert alert-light">
+                    <p class="mb-0"><strong>Note:</strong> Detailed bill breakdown will be displayed here in the full implementation. 
+                    This would include itemized charges, consumption details, and payment history.</p>
+                </div>
+            </div>
+        </div>
+    `;
+    new bootstrap.Modal(document.getElementById('billDetailsModal')).show();
+}
+
+// Quick payment functionality
+function recordQuickPayment(billId) {
+    const billRow = event.target.closest('tr');
+    const houseInfo = billRow.querySelector('td').textContent.trim();
+    const billType = billRow.querySelector('[data-bill-type]').getAttribute('data-bill-type');
+    const billingCycle = billRow.querySelectorAll('td')[2].textContent.trim();
+    const balance = billRow.querySelectorAll('td')[7].textContent.replace('₹', '').trim();
+    
+    document.getElementById('quickPaymentBillInfo').textContent = `${houseInfo} - ${billType.toUpperCase()} - ${billingCycle}`;
+    document.getElementById('outstandingAmount').textContent = balance;
+    document.getElementById('quickAmount').value = balance;
+    document.getElementById('quickPaymentDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('quickPaymentForm').setAttribute('data-bill-id', billId);
+    
+    new bootstrap.Modal(document.getElementById('quickPaymentModal')).show();
+}
+
+// Handle quick payment form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const quickPaymentForm = document.getElementById('quickPaymentForm');
+    if (quickPaymentForm) {
+        quickPaymentForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const billId = this.getAttribute('data-bill-id');
+            const amount = document.getElementById('quickAmount').value;
+            const paymentDate = document.getElementById('quickPaymentDate').value;
+            const paymentMethod = document.getElementById('quickPaymentMethod').value;
+            const transactionId = document.getElementById('quickTransactionId').value;
+            const notes = document.getElementById('quickNotes').value;
+            
+            if (!amount || !paymentDate) {
+                Swal.fire('Error', 'Please fill in all required fields.', 'error');
+                return;
+            }
+            
+            const result = await confirmAction(
+                'Record Payment?',
+                `Record payment of ₹${amount} for this bill?`,
+                'question',
+                'Yes, Record',
+                'Cancel'
+            );
+            
+            if (result.isConfirmed) {
+                showLoading('Recording payment...');
+                
+                // Create form data
+                const formData = new FormData();
+                formData.append('bill_id', billId);
+                formData.append('amount_paid', amount);
+                formData.append('payment_date', paymentDate);
+                formData.append('payment_method', paymentMethod);
+                formData.append('transaction_id', transactionId);
+                formData.append('notes', notes);
+                
+                // Submit to record payment endpoint
+                try {
+                    const response = await fetch('{{ url_for("record_payment") }}', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (response.ok) {
+                        Swal.fire('Success!', 'Payment recorded successfully.', 'success');
+                        bootstrap.Modal.getInstance(document.getElementById('quickPaymentModal')).hide();
+                        setTimeout(() => window.location.reload(), 1500);
+                    } else {
+                        throw new Error('Payment recording failed');
+                    }
+                } catch (error) {
+                    hideLoading();
+                    Swal.fire('Error', 'Failed to record payment. Please try again.', 'error');
+                }
+            }
+        });
+    }
+});
+
+// Table sorting functionality
+function sortBillsTable(columnIndex) {
+    const table = document.getElementById('billsTable');
+    const tbody = table.getElementsByTagName('tbody')[0];
+    const rows = Array.from(tbody.getElementsByTagName('tr'));
+    
+    // Determine sort direction
+    const currentSort = table.getAttribute('data-sort-column');
+    const currentDirection = table.getAttribute('data-sort-direction') || 'asc';
+    const newDirection = (currentSort == columnIndex && currentDirection === 'asc') ? 'desc' : 'asc';
+    
+    // Sort rows
+    rows.sort((a, b) => {
+        let aValue = a.cells[columnIndex].textContent.trim();
+        let bValue = b.cells[columnIndex].textContent.trim();
+        
+        // Handle currency values
+        if (aValue.includes('₹')) {
+            aValue = parseFloat(aValue.replace('₹', '').replace(',', ''));
+            bValue = parseFloat(bValue.replace('₹', '').replace(',', ''));
+        }
+        
+        // Handle dates
+        if (aValue.match(/\d{4}-\d{2}-\d{2}/)) {
+            aValue = new Date(aValue);
+            bValue = new Date(bValue);
+        }
+        
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+            return newDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        } else if (aValue instanceof Date && bValue instanceof Date) {
+            return newDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        } else {
+            aValue = aValue.toString().toLowerCase();
+            bValue = bValue.toString().toLowerCase();
+            if (newDirection === 'asc') {
+                return aValue.localeCompare(bValue);
+            } else {
+                return bValue.localeCompare(aValue);
+            }
+        }
+    });
+    
+    // Update table
+    rows.forEach(row => tbody.appendChild(row));
+    
+    // Update sort indicators
+    table.setAttribute('data-sort-column', columnIndex);
+    table.setAttribute('data-sort-direction', newDirection);
+    
+    // Update sort icons
+    const headers = table.querySelectorAll('th i.fa-sort, th i.fa-sort-up, th i.fa-sort-down');
+    headers.forEach(icon => {
+        icon.className = 'fas fa-sort text-muted';
+    });
+    
+    const currentHeader = table.querySelectorAll('th')[columnIndex].querySelector('i');
+    if (currentHeader) {
+        currentHeader.className = `fas fa-sort-${newDirection === 'asc' ? 'up' : 'down'} text-primary`;
+    }
+}
+
+// Print bill functionality
+function printBill(billId) {
+    Swal.fire({
+        title: 'Print Bill',
+        text: 'This will open the bill in a new window for printing.',
+        icon: 'info',
+        showCancelButton: true,
+        confirmButtonText: 'Open Print View',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.open(`/bills/${billId}/print`, '_blank');
+        }
+    });
+}
+
+function printCurrentBill() {
+    // This would print the currently opened bill details
+    window.print();
+}
+
+// Export functionality
+function exportBills() {
+    showLoading('Preparing export...');
+    
+    const table = document.getElementById('billsTable');
+    const data = [];
+    
+    // Get headers (exclude actions column)
+    const headers = [];
+    const headerRow = table.querySelector('thead tr');
+    for (let i = 0; i < headerRow.cells.length - 1; i++) {
+        headers.push(headerRow.cells[i].textContent.replace(/\s+/g, ' ').trim());
+    }
+    data.push(headers);
+    
+    // Get visible rows data
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        if (row.style.display !== 'none') {
+            const rowData = [];
+            for (let i = 0; i < row.cells.length - 1; i++) {
+                rowData.push(row.cells[i].textContent.replace(/\s+/g, ' ').trim());
+            }
+            data.push(rowData);
+        }
+    });
+    
+    // Create CSV content
+    const csvContent = data.map(row => 
+        row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+    
+    // Download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `bills_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    hideLoading();
+    
+    Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: 'Bills exported successfully!',
+        showConfirmButton: false,
+        timer: 3000
+    });
+}
+
+// Real-time search with debouncing
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    let searchTimeout;
+    
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(filterBills, 300);
+    });
+    
+    // Initialize filter count
+    filterBills();
+});
+</script>
+{% endblock %}

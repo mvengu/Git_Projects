@@ -1,0 +1,918 @@
+<!-- templates/meter_readings.html -->
+{% extends "base.html" %}
+
+{% block title %}Meter Readings - Community Management{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item active" aria-current="page">
+    <i class="fas fa-tint"></i> Meter Readings
+</li>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="fas fa-tint"></i> {{ 'Meter Readings Management' if user_role == 'admin' else 'My Meter Readings' }}</h1>
+        <p>{{ 'Manage water meter readings for all houses' if user_role == 'admin' else 'View your water meter reading history' }}
+            <i class="fas fa-question-circle help-icon" 
+               data-bs-toggle="tooltip" 
+               title="Meter readings are used to calculate water consumption and billing"></i>
+        </p>
+    </div>
+    <div>
+        <button class="btn btn-outline-success me-2" onclick="exportReadings()" data-bs-toggle="tooltip" title="Export readings to Excel">
+            <i class="fas fa-file-excel"></i> Export
+        </button>
+        {% if user_role == 'admin' %}
+        <a href="{{ url_for('add_meter_reading') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add Reading
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Debug Information (remove in production) -->
+<div class="alert alert-info mb-3">
+    <strong>Debug Info:</strong> 
+    Total readings: {{ readings|length if readings else 0 }} | 
+    User Role: {{ user_role }} | 
+    Current Year: {{ current_year }} | 
+    Available Years: {{ available_years|length if available_years else 0 }}
+</div>
+
+<!-- Enhanced Quick Stats with Consumption Insights -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="quick-stats">
+            <h6>Total Readings</h6>
+            <div class="stat-value">{{ pagination.total if pagination else 0 }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="quick-stats success">
+            <h6>This Period</h6>
+            <div class="stat-value">{{ readings|length if readings else 0 }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="quick-stats warning">
+            <h6>Total Consumption</h6>
+            <div class="stat-value">{{ "%.0f"|format(readings|sum(attribute='consumption') if readings else 0) }}</div>
+            <small>units</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="quick-stats info">
+            <h6>Average/House</h6>
+            <div class="stat-value">
+                {% if readings %}
+                    {% set total_consumption = readings|sum(attribute='consumption') or 0 %}
+                    {% set house_count = readings|groupby('house_number')|list|length %}
+                    {{ "%.1f"|format((total_consumption / house_count) if house_count > 0 else 0) }}
+                {% else %}
+                    0.0
+                {% endif %}
+            </div>
+            <small>units</small>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Filter Section -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row align-items-center">
+            <div class="col-md-4">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" id="searchInput" 
+                           placeholder="Search by house number or owner..." onkeyup="filterReadings()">
+                </div>
+            </div>
+            <div class="col-md-2">
+                <label for="yearFilter" class="form-label">Year:</label>
+                <select class="form-select" id="yearFilter" onchange="applyFilters()">
+                    <option value="all" {% if current_year == 'all' %}selected{% endif %}>All Years</option>
+                    {% for year in available_years %}
+                    <option value="{{ year.year }}" {% if current_year == year.year|string %}selected{% endif %}>{{ year.year }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="statusFilterSelect" class="form-label">Status:</label>
+                <select class="form-select" id="statusFilterSelect" onchange="filterReadings()">
+                    <option value="all">All Status</option>
+                    <option value="verified">Verified</option>
+                    <option value="pending_verification">Pending</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="consumptionFilter" class="form-label">Consumption:</label>
+                <select class="form-select" id="consumptionFilter" onchange="filterReadings()">
+                    <option value="all">All Ranges</option>
+                    <option value="high">High (>30 units)</option>
+                    <option value="medium">Medium (10-30 units)</option>
+                    <option value="low">Low (<10 units)</option>
+                    <option value="zero">Zero consumption</option>
+                </select>
+            </div>
+            <div class="col-md-2 text-end">
+                <button class="btn btn-outline-secondary" onclick="clearAllFilters()" data-bs-toggle="tooltip" title="Clear all filters">
+                    <i class="fas fa-times"></i> Clear
+                </button>
+            </div>
+        </div>
+        
+        <!-- Filter summary -->
+        <div class="row mt-3">
+            <div class="col-12">
+                <small class="text-muted">
+                    <i class="fas fa-info-circle"></i>
+                    Showing <span id="visibleCount">{{ readings|length if readings else 0 }}</span> of {{ pagination.total if pagination else 0 }} readings
+                    • Total consumption: <span id="visibleConsumption">{{ "%.1f"|format(readings|sum(attribute='consumption') if readings else 0) }}</span> units
+                    {% if current_year and current_year != 'all' %}• Year: {{ current_year }}{% endif %}
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if readings and readings|length > 0 %}
+        <div class="table-responsive">
+            <table class="table" id="readingsTable">
+                <thead>
+                    <tr>
+                        {% if user_role == 'admin' %}
+                        <th onclick="sortReadingsTable(0)" style="cursor: pointer;">
+                            House <i class="fas fa-sort text-muted"></i>
+                        </th>
+                        <th onclick="sortReadingsTable(1)" style="cursor: pointer;">
+                            Owner <i class="fas fa-sort text-muted"></i>
+                        </th>
+                        {% endif %}
+                        <th onclick="sortReadingsTable({{ '2' if user_role == 'admin' else '0' }})" style="cursor: pointer;">
+                            Reading Date <i class="fas fa-sort text-muted"></i>
+                        </th>
+                        <th>Previous Reading</th>
+                        <th>Current Reading 
+                            <i class="fas fa-question-circle help-icon" 
+                               data-bs-toggle="tooltip" 
+                               title="Current meter reading in units"></i>
+                        </th>
+                        <th onclick="sortReadingsTable({{ '5' if user_role == 'admin' else '3' }})" style="cursor: pointer;">
+                            Consumption <i class="fas fa-sort text-muted"></i>
+                        </th>
+                        <th>Status</th>
+                        {% if user_role == 'admin' %}
+                        <th>Actions</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for reading in readings %}
+                    <tr data-status="{{ reading.status }}" data-consumption="{{ reading.consumption or 0 }}">
+                        {% if user_role == 'admin' %}
+                        <td><strong>{{ reading.house_number }}</strong></td>
+                        <td>{{ reading.owner_name }}</td>
+                        {% endif %}
+                        <td>
+                            {{ reading.reading_date }}
+                            <i class="fas fa-copy text-muted ms-1" style="cursor: pointer;" 
+                               onclick="copyToClipboard('{{ reading.reading_date }}')" 
+                               data-bs-toggle="tooltip" title="Copy date"></i>
+                        </td>
+                        <td>
+                            <span class="text-muted">{{ "%.2f"|format(reading.previous_reading or 0) }}</span>
+                        </td>
+                        <td>
+                            <strong>{{ "%.2f"|format(reading.current_reading) }}</strong>
+                            <i class="fas fa-copy text-muted ms-1" style="cursor: pointer;" 
+                               onclick="copyToClipboard('{{ reading.current_reading }}')" 
+                               data-bs-toggle="tooltip" title="Copy reading"></i>
+                        </td>
+                        <td>
+                            {% if reading.consumption and reading.consumption > 0 %}
+                                {% set consumption_class = 'success' if reading.consumption <= 20 else 'warning' if reading.consumption <= 40 else 'danger' %}
+                                <span class="badge bg-{{ consumption_class }}">
+                                    <i class="fas fa-tint"></i> {{ "%.2f"|format(reading.consumption) }} units
+                                </span>
+                                {% if reading.consumption > 40 %}
+                                    <i class="fas fa-exclamation-triangle text-warning ms-1" 
+                                       data-bs-toggle="tooltip" title="High consumption - please verify"></i>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge bg-secondary">
+                                    <i class="fas fa-minus"></i> 0.00 units
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if reading.status == 'verified' %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check-circle"></i> Verified
+                                </span>
+                            {% elif reading.status == 'pending_verification' %}
+                                <span class="badge bg-warning">
+                                    <i class="fas fa-clock"></i> Pending
+                                </span>
+                            {% else %}
+                                <span class="badge bg-info">
+                                    <i class="fas fa-info-circle"></i> {{ reading.status.title() }}
+                                </span>
+                            {% endif %}
+                        </td>
+                        {% if user_role == 'admin' %}
+                        <td>
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-sm btn-outline-info" onclick="viewReadingDetails({{ reading.id }})"
+                                        data-bs-toggle="tooltip" title="View reading details">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-primary" onclick="editReading({{ reading.id }})"
+                                        data-bs-toggle="tooltip" title="Edit reading">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                {% if reading.status != 'verified' %}
+                                <button class="btn btn-sm btn-outline-success" onclick="verifyReading({{ reading.id }})"
+                                        data-bs-toggle="tooltip" title="Mark as verified">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        {% if user_role == 'admin' %}
+                        <th colspan="2">TOTALS</th>
+                        {% else %}
+                        <th>TOTALS</th>
+                        {% endif %}
+                        <th><span class="badge bg-info">{{ readings|length }} readings</span></th>
+                        <th>-</th>
+                        <th>-</th>
+                        <th>
+                            <strong class="text-primary">
+                                <i class="fas fa-tint"></i> {{ "%.2f"|format(readings|sum(attribute='consumption') or 0) }} units
+                            </strong>
+                        </th>
+                        <th>-</th>
+                        {% if user_role == 'admin' %}
+                        <th>-</th>
+                        {% endif %}
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-tint fa-3x text-muted mb-3"></i>
+            <h4 class="text-muted">No Meter Readings Found</h4>
+            <div class="alert alert-warning mt-3">
+                <h6><i class="fas fa-info-circle"></i> Possible Reasons:</h6>
+                <ul class="mb-0 text-start">
+                    <li>No meter readings have been recorded yet</li>
+                    <li>Selected year filter has no data</li>
+                    <li>User has no house assigned (for residents)</li>
+                    <li>Database connection issue</li>
+                </ul>
+            </div>
+            <p class="text-muted">
+                {% if user_role == 'admin' %}
+                    <a href="{{ url_for('add_meter_reading') }}" class="btn btn-primary mt-2">
+                        <i class="fas fa-plus"></i> Add First Reading
+                    </a>
+                    <button class="btn btn-outline-info mt-2 ms-2" onclick="showDebuggingInfo()">
+                        <i class="fas fa-bug"></i> Debug Info
+                    </button>
+                {% else %}
+                    Please contact administrator if this seems incorrect.
+                    <br>
+                    <button class="btn btn-outline-info mt-2" onclick="showContactInfo()">
+                        <i class="fas fa-phone"></i> Contact Admin
+                    </button>
+                {% endif %}
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Enhanced Pagination -->
+{% if pagination.pages > 1 %}
+<div class="d-flex justify-content-between align-items-center mt-4">
+    <div>
+        <small class="text-muted">
+            <i class="fas fa-info-circle"></i>
+            Showing {{ ((pagination.page - 1) * pagination.per_page + 1) }} to 
+            {{ (pagination.page * pagination.per_page) if pagination.page < pagination.pages else pagination.total }} 
+            of {{ pagination.total }} records
+        </small>
+    </div>
+    <nav>
+        <ul class="pagination">
+            {% if pagination.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('meter_readings', year=current_year, page=pagination.prev_num) }}">
+                    <i class="fas fa-chevron-left"></i> Previous
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link"><i class="fas fa-chevron-left"></i> Previous</span>
+            </li>
+            {% endif %}
+            
+            {% for page_num in range(1, pagination.pages + 1) %}
+                {% if page_num == pagination.page %}
+                <li class="page-item active">
+                    <span class="page-link">{{ page_num }}</span>
+                </li>
+                {% elif page_num == 1 or page_num == pagination.pages or (page_num >= pagination.page - 2 and page_num <= pagination.page + 2) %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('meter_readings', year=current_year, page=page_num) }}">{{ page_num }}</a>
+                </li>
+                {% elif page_num == pagination.page - 3 or page_num == pagination.page + 3 %}
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if pagination.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('meter_readings', year=current_year, page=pagination.next_num) }}">
+                    Next <i class="fas fa-chevron-right"></i>
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">Next <i class="fas fa-chevron-right"></i></span>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+{% endif %}
+
+<!-- Enhanced Reading Details Modal -->
+<div class="modal fade" id="readingDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-tint"></i> Meter Reading Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="readingDetailsContent">
+                <!-- Reading details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-primary" onclick="printReadingDetails()">
+                    <i class="fas fa-print"></i> Print
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Edit Reading Modal -->
+<div class="modal fade" id="editReadingModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-edit"></i> Edit Meter Reading</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editReadingForm" data-no-loading="true">
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        Editing reading for <strong id="editReadingHouseInfo"></strong>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editCurrentReading" class="form-label">
+                                    Current Reading *
+                                    <i class="fas fa-question-circle help-icon" 
+                                       data-bs-toggle="tooltip" 
+                                       title="Enter the current meter reading value"></i>
+                                </label>
+                                <div class="input-group">
+                                    <input type="number" step="0.01" class="form-control" id="editCurrentReading" required min="0">
+                                    <span class="input-group-text">units</span>
+                                </div>
+                                <small class="form-text text-muted">Previous: <span id="editPreviousReading">0.00</span> units</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editReadingDate" class="form-label">Reading Date *</label>
+                                <input type="date" class="form-control" id="editReadingDate" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editStatus" class="form-label">Status</label>
+                                <select class="form-select" id="editStatus">
+                                    <option value="verified">✓ Verified</option>
+                                    <option value="pending_verification">⏳ Pending Verification</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Calculated Consumption</label>
+                                <div class="form-control-plaintext">
+                                    <strong id="calculatedConsumption">0.00 units</strong>
+                                    <small class="text-muted d-block">Auto-calculated from readings</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Enhanced filtering functionality
+function filterReadings() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const statusFilter = document.getElementById('statusFilterSelect').value;
+    const consumptionFilter = document.getElementById('consumptionFilter').value;
+    const table = document.getElementById('readingsTable');
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    
+    let visibleCount = 0;
+    let visibleConsumption = 0;
+
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        let searchMatch = true;
+        let statusMatch = true;
+        let consumptionMatch = true;
+
+        // Search match
+        if (searchTerm) {
+            const rowText = row.textContent.toLowerCase();
+            searchMatch = rowText.includes(searchTerm);
+        }
+
+        // Status match
+        if (statusFilter !== 'all') {
+            const rowStatus = row.getAttribute('data-status');
+            statusMatch = rowStatus === statusFilter;
+        }
+
+        // Consumption match
+        if (consumptionFilter !== 'all') {
+            const consumption = parseFloat(row.getAttribute('data-consumption')) || 0;
+            switch (consumptionFilter) {
+                case 'high':
+                    consumptionMatch = consumption > 30;
+                    break;
+                case 'medium':
+                    consumptionMatch = consumption >= 10 && consumption <= 30;
+                    break;
+                case 'low':
+                    consumptionMatch = consumption > 0 && consumption < 10;
+                    break;
+                case 'zero':
+                    consumptionMatch = consumption === 0;
+                    break;
+            }
+        }
+
+        if (searchMatch && statusMatch && consumptionMatch) {
+            row.style.display = '';
+            visibleCount++;
+            visibleConsumption += parseFloat(row.getAttribute('data-consumption')) || 0;
+        } else {
+            row.style.display = 'none';
+        }
+    }
+
+    document.getElementById('visibleCount').textContent = visibleCount;
+    document.getElementById('visibleConsumption').textContent = visibleConsumption.toFixed(1);
+}
+
+function applyFilters() {
+    const year = document.getElementById('yearFilter').value;
+    const url = new URL(window.location);
+    url.searchParams.set('year', year);
+    url.searchParams.delete('page');
+    
+    showLoading('Applying filters...');
+    window.location.href = url.toString();
+}
+
+function clearAllFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('statusFilterSelect').value = 'all';
+    document.getElementById('consumptionFilter').value = 'all';
+    filterReadings();
+}
+
+// Enhanced reading details view
+function viewReadingDetails(readingId) {
+    const readingRow = event.target.closest('tr');
+    const cells = readingRow.querySelectorAll('td');
+    
+    // Extract reading data from the row
+    const isAdmin = {{ 'true' if user_role == 'admin' else 'false' }};
+    const houseInfo = isAdmin ? cells[0].textContent.trim() : 'Your House';
+    const ownerInfo = isAdmin ? cells[1].textContent.trim() : '';
+    const readingDate = cells[isAdmin ? 2 : 0].textContent.trim();
+    const previousReading = cells[isAdmin ? 3 : 1].textContent.trim();
+    const currentReading = cells[isAdmin ? 4 : 2].textContent.trim();
+    const consumption = cells[isAdmin ? 5 : 3].textContent.trim();
+    const status = cells[isAdmin ? 6 : 4].textContent.trim();
+
+    document.getElementById('readingDetailsContent').innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card border-primary">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0"><i class="fas fa-info-circle"></i> Reading Information</h6>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Reading ID:</strong> ${readingId}</p>
+                        ${isAdmin ? `<p><strong>House:</strong> ${houseInfo}</p>` : ''}
+                        ${isAdmin && ownerInfo ? `<p><strong>Owner:</strong> ${ownerInfo}</p>` : ''}
+                        <p><strong>Reading Date:</strong> ${readingDate}</p>
+                        <p><strong>Status:</strong> ${status}</p>
+                        <p><strong>Reading Type:</strong> <span class="badge bg-secondary">L&T Individual</span></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-success">
+                    <div class="card-header bg-success text-white">
+                        <h6 class="mb-0"><i class="fas fa-tachometer-alt"></i> Consumption Details</h6>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Previous Reading:</strong> ${previousReading}</p>
+                        <p><strong>Current Reading:</strong> <span class="text-primary">${currentReading}</span></p>
+                        <p><strong>Consumption:</strong> ${consumption}</p>
+                        <p><strong>Estimated Cost:</strong> <span class="text-success">₹${(parseFloat(consumption.replace(/[^\d.]/g, '')) * 70).toFixed(2)}</span></p>
+                        <small class="text-muted">* Based on ₹70 per unit rate</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <hr>
+        <div class="row">
+            <div class="col-12">
+                <h6><i class="fas fa-chart-line"></i> Consumption Analysis</h6>
+                <div class="alert alert-light">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <strong>Consumption Level:</strong> 
+                            ${getConsumptionLevel(parseFloat(consumption.replace(/[^\d.]/g, '')))}
+                        </div>
+                        <div class="col-md-4">
+                            <strong>Monthly Equivalent:</strong> 
+                            ${(parseFloat(consumption.replace(/[^\d.]/g, '')) * 30 / new Date().getDate()).toFixed(1)} units/month
+                        </div>
+                        <div class="col-md-4">
+                            <strong>Submitted:</strong> ${formatDate(readingDate)}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    new bootstrap.Modal(document.getElementById('readingDetailsModal')).show();
+}
+
+function getConsumptionLevel(consumption) {
+    if (consumption === 0) return '<span class="badge bg-secondary">No Consumption</span>';
+    if (consumption < 10) return '<span class="badge bg-success">Low</span>';
+    if (consumption <= 30) return '<span class="badge bg-warning">Normal</span>';
+    return '<span class="badge bg-danger">High</span>';
+}
+
+// Enhanced edit reading functionality
+function editReading(readingId) {
+    const readingRow = event.target.closest('tr');
+    const cells = readingRow.querySelectorAll('td');
+    const isAdmin = {{ 'true' if user_role == 'admin' else 'false' }};
+    
+    const houseInfo = isAdmin ? `${cells[0].textContent.trim()} - ${cells[1].textContent.trim()}` : 'Your House';
+    const currentReading = cells[isAdmin ? 4 : 2].textContent.trim();
+    const previousReading = cells[isAdmin ? 3 : 1].textContent.trim();
+    const readingDate = cells[isAdmin ? 2 : 0].textContent.trim();
+    const status = cells[isAdmin ? 6 : 4].textContent.toLowerCase().includes('verified') ? 'verified' : 'pending_verification';
+    
+    document.getElementById('editReadingHouseInfo').textContent = houseInfo;
+    document.getElementById('editCurrentReading').value = parseFloat(currentReading);
+    document.getElementById('editPreviousReading').textContent = previousReading;
+    document.getElementById('editReadingDate').value = readingDate;
+    document.getElementById('editStatus').value = status;
+    
+    // Calculate and show consumption
+    updateCalculatedConsumption();
+    
+    // Store reading ID for saving
+    document.getElementById('editReadingForm').dataset.readingId = readingId;
+    
+    new bootstrap.Modal(document.getElementById('editReadingModal')).show();
+}
+
+function updateCalculatedConsumption() {
+    const current = parseFloat(document.getElementById('editCurrentReading').value) || 0;
+    const previous = parseFloat(document.getElementById('editPreviousReading').textContent) || 0;
+    const consumption = Math.max(0, current - previous);
+    
+    document.getElementById('calculatedConsumption').textContent = `${consumption.toFixed(2)} units`;
+    
+    // Add visual feedback for consumption level
+    const consumptionElement = document.getElementById('calculatedConsumption');
+    consumptionElement.className = '';
+    if (consumption === 0) {
+        consumptionElement.className = 'text-muted';
+    } else if (consumption < 10) {
+        consumptionElement.className = 'text-success';
+    } else if (consumption <= 30) {
+        consumptionElement.className = 'text-warning';
+    } else {
+        consumptionElement.className = 'text-danger';
+    }
+}
+
+// Quick verify reading function
+async function verifyReading(readingId) {
+    const result = await confirmAction(
+        'Verify Reading?',
+        'Mark this meter reading as verified?',
+        'question',
+        'Yes, Verify',
+        'Cancel'
+    );
+    
+    if (result.isConfirmed) {
+        showLoading('Verifying reading...');
+        
+        // In real implementation, this would make an AJAX call
+        setTimeout(() => {
+            hideLoading();
+            Swal.fire('Verified!', 'Meter reading has been verified.', 'success');
+            window.location.reload();
+        }, 1000);
+    }
+}
+
+// Handle edit form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const editForm = document.getElementById('editReadingForm');
+    const currentReadingInput = document.getElementById('editCurrentReading');
+    
+    if (currentReadingInput) {
+        currentReadingInput.addEventListener('input', updateCalculatedConsumption);
+    }
+    
+    if (editForm) {
+        editForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const readingId = this.dataset.readingId;
+            const currentReading = document.getElementById('editCurrentReading').value;
+            const readingDate = document.getElementById('editReadingDate').value;
+            const status = document.getElementById('editStatus').value;
+            
+            if (!currentReading || !readingDate) {
+                Swal.fire('Error', 'Please fill in all required fields.', 'error');
+                return;
+            }
+            
+            const result = await confirmAction(
+                'Save Changes?',
+                'Update this meter reading with the new values?',
+                'question',
+                'Yes, Save',
+                'Cancel'
+            );
+            
+            if (result.isConfirmed) {
+                showLoading('Saving changes...');
+                
+                // In real implementation, this would submit to server
+                setTimeout(() => {
+                    hideLoading();
+                    Swal.fire('Success!', 'Meter reading updated successfully.', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('editReadingModal')).hide();
+                    window.location.reload();
+                }, 1500);
+            }
+        });
+    }
+});
+
+// Table sorting functionality
+function sortReadingsTable(columnIndex) {
+    const table = document.getElementById('readingsTable');
+    const tbody = table.getElementsByTagName('tbody')[0];
+    const rows = Array.from(tbody.getElementsByTagName('tr'));
+    
+    const currentSort = table.getAttribute('data-sort-column');
+    const currentDirection = table.getAttribute('data-sort-direction') || 'asc';
+    const newDirection = (currentSort == columnIndex && currentDirection === 'asc') ? 'desc' : 'asc';
+    
+    rows.sort((a, b) => {
+        let aValue = a.cells[columnIndex].textContent.trim();
+        let bValue = b.cells[columnIndex].textContent.trim();
+        
+        // Handle dates
+        if (aValue.match(/\d{4}-\d{2}-\d{2}/)) {
+            aValue = new Date(aValue);
+            bValue = new Date(bValue);
+        }
+        // Handle numbers (consumption, readings)
+        else if (!isNaN(parseFloat(aValue))) {
+            aValue = parseFloat(aValue);
+            bValue = parseFloat(bValue);
+        }
+        // Handle text
+        else {
+            aValue = aValue.toLowerCase();
+            bValue = bValue.toLowerCase();
+        }
+        
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+            return newDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        } else if (aValue instanceof Date && bValue instanceof Date) {
+            return newDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        } else {
+            if (newDirection === 'asc') {
+                return aValue.toString().localeCompare(bValue.toString());
+            } else {
+                return bValue.toString().localeCompare(aValue.toString());
+            }
+        }
+    });
+    
+    rows.forEach(row => tbody.appendChild(row));
+    
+    table.setAttribute('data-sort-column', columnIndex);
+    table.setAttribute('data-sort-direction', newDirection);
+    
+    // Update sort icons
+    const headers = table.querySelectorAll('th i.fa-sort, th i.fa-sort-up, th i.fa-sort-down');
+    headers.forEach(icon => {
+        icon.className = 'fas fa-sort text-muted';
+    });
+    
+    const currentHeader = table.querySelectorAll('th')[columnIndex].querySelector('i');
+    if (currentHeader) {
+        currentHeader.className = `fas fa-sort-${newDirection === 'asc' ? 'up' : 'down'} text-primary`;
+    }
+}
+
+// Export functionality
+function exportReadings() {
+    showLoading('Preparing export...');
+    
+    const table = document.getElementById('readingsTable');
+    const data = [];
+    
+    // Get headers
+    const headers = [];
+    const headerRow = table.querySelector('thead tr');
+    for (let i = 0; i < headerRow.cells.length - ({{ '1' if user_role == 'admin' else '0' }}); i++) {
+        headers.push(headerRow.cells[i].textContent.replace(/\s+/g, ' ').trim());
+    }
+    data.push(headers);
+    
+    // Get visible rows data
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        if (row.style.display !== 'none') {
+            const rowData = [];
+            for (let i = 0; i < row.cells.length - ({{ '1' if user_role == 'admin' else '0' }}); i++) {
+                rowData.push(row.cells[i].textContent.replace(/\s+/g, ' ').trim());
+            }
+            data.push(rowData);
+        }
+    });
+    
+    // Create CSV content
+    const csvContent = data.map(row => 
+        row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+    
+    // Download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `meter_readings_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    hideLoading();
+    
+    Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: 'Meter readings exported successfully!',
+        showConfirmButton: false,
+        timer: 3000
+    });
+}
+
+function printReadingDetails() {
+    window.print();
+}
+
+// Real-time search with debouncing
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    let searchTimeout;
+    
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(filterReadings, 300);
+    });
+    
+    // Initialize filter
+    filterReadings();
+});
+
+// Debug functions
+function showDebuggingInfo() {
+    Swal.fire({
+        title: 'Debugging Information',
+        html: `
+            <div class="text-start">
+                <h6><i class="fas fa-database"></i> Database Check:</h6>
+                <p><strong>Current URL:</strong> ${window.location.href}</p>
+                <p><strong>Current Year Filter:</strong> {{ current_year or 'Not set' }}</p>
+                <p><strong>Available Years:</strong> {{ available_years|length if available_years else 0 }}</p>
+                <hr>
+                <h6><i class="fas fa-info-circle"></i> Suggestions:</h6>
+                <ul>
+                    <li>Try changing the year filter to "All Years"</li>
+                    <li>Add some test meter readings first</li>
+                    <li>Check if houses are properly set up</li>
+                    <li>Verify database connectivity</li>
+                </ul>
+            </div>
+        `,
+        icon: 'info',
+        confirmButtonText: 'Add Test Reading',
+        showCancelButton: true,
+        cancelButtonText: 'Close'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = "{{ url_for('add_meter_reading') }}";
+        }
+    });
+}
+
+function showContactInfo() {
+    Swal.fire({
+        title: 'Contact Administrator',
+        html: `
+            <div class="text-start">
+                <p><strong><i class="fas fa-envelope"></i> Email:</strong> admin@community.com</p>
+                <p><strong><i class="fas fa-phone"></i> Phone:</strong> +91 98765 43210</p>
+                <p><strong><i class="fas fa-clock"></i> Office Hours:</strong> 9:00 AM - 6:00 PM</p>
+                <hr>
+                <p class="text-muted small">Please mention that you're not seeing meter readings data.</p>
+            </div>
+        `,
+        icon: 'info',
+        confirmButtonText: 'Copy Email',
+        showCancelButton: true,
+        cancelButtonText: 'Close'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            copyToClipboard('admin@community.com', 'Admin email copied!');
+        }
+    });
+}
+</script>
+{% endblock %}

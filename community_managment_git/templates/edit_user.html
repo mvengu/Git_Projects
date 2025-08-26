@@ -1,0 +1,127 @@
+<!-- templates/edit_user.html -->
+{% extends "base.html" %}
+
+{% block title %}Edit User - Community Management{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-user-edit"></i> Edit User</h1>
+    <p>Update user account information</p>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">User Information</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="first_name" class="form-label">First Name *</label>
+                                <input type="text" class="form-control" id="first_name" name="first_name" value="{{ user.first_name }}" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="last_name" class="form-label">Last Name *</label>
+                                <input type="text" class="form-control" id="last_name" name="last_name" value="{{ user.last_name }}" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="email" class="form-label">Email Address *</label>
+                                <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="role" class="form-label">Role *</label>
+                                <select class="form-select" id="role" name="role" required>
+                                    <option value="resident" {{ 'selected' if user.role == 'resident' else '' }}>Resident</option>
+                                    <option value="admin" {{ 'selected' if user.role == 'admin' else '' }}>Admin</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="phone_number" class="form-label">Phone Number</label>
+                                <input type="tel" class="form-control" id="phone_number" name="phone_number" value="{{ user.phone_number or '' }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="house_id" class="form-label">Assign House</label>
+                                <select class="form-select" id="house_id" name="house_id">
+                                    <option value="">No house assigned</option>
+                                    {% for house in houses %}
+                                    <option value="{{ house.id }}" {{ 'selected' if house.id == user.house_id else '' }}>
+                                        {{ house.house_number }} - {{ house.owner_name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Update User
+                        </button>
+                        <a href="{{ url_for('users') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Back to Users
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Password Reset Section -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0 text-warning"><i class="fas fa-key"></i> Reset Password</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('reset_user_password', user_id=user.id) }}">
+                    <div class="mb-3">
+                        <label for="new_password" class="form-label">New Password</label>
+                        <input type="password" class="form-control" id="new_password" name="new_password" required minlength="6">
+                        <small class="form-text text-muted">Minimum 6 characters</small>
+                    </div>
+                    <button type="submit" class="btn btn-warning" onclick="return confirm('Are you sure you want to reset this user\'s password?')">
+                        <i class="fas fa-key"></i> Reset Password
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">User Details</h6>
+            </div>
+            <div class="card-body">
+                <p><strong>User ID:</strong> {{ user.id }}</p>
+                <p><strong>Created:</strong> {{ user.created_at }}</p>
+                <p><strong>Last Login:</strong> {{ user.last_login or 'Never' }}</p>
+                <p><strong>Current Role:</strong> 
+                    {% if user.role == 'admin' %}
+                        <span class="badge bg-danger">Admin</span>
+                    {% else %}
+                        <span class="badge bg-primary">Resident</span>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

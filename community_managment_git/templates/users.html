@@ -1,0 +1,981 @@
+<!-- templates/users.html -->
+{% extends "base.html" %}
+
+{% block title %}Users Management - Community Management{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item active" aria-current="page">
+    <i class="fas fa-users"></i> Users
+</li>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="fas fa-users"></i> Users Management</h1>
+        <p>Manage user accounts and access permissions
+            <i class="fas fa-question-circle help-icon" 
+               data-bs-toggle="tooltip" 
+               title="Manage all user accounts, roles, and house assignments"></i>
+        </p>
+    </div>
+    <div>
+        <button class="btn btn-outline-success me-2" onclick="exportUsers()" data-bs-toggle="tooltip" title="Export users to Excel">
+            <i class="fas fa-file-excel"></i> Export
+        </button>
+        <button class="btn btn-outline-info me-2" onclick="showBulkActions()" data-bs-toggle="tooltip" title="Bulk operations">
+            <i class="fas fa-tasks"></i> Bulk Actions
+        </button>
+        <a href="{{ url_for('add_user') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add User
+        </a>
+    </div>
+</div>
+
+<!-- Enhanced Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="mb-0 counter" data-target="{{ users|length }}">0</h3>
+                    <p class="mb-0">Total Users</p>
+                    <small class="opacity-75">
+                        <i class="fas fa-chart-pie"></i> 
+                        System accounts
+                    </small>
+                </div>
+                <i class="fas fa-users fa-2x opacity-75"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card" style="background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="mb-0 counter" data-target="{{ users|selectattr('role', 'equalto', 'admin')|list|length }}">0</h3>
+                    <p class="mb-0">Administrators</p>
+                    <small class="opacity-75">
+                        <i class="fas fa-shield-alt"></i> 
+                        Full access users
+                    </small>
+                </div>
+                <i class="fas fa-user-shield fa-2x opacity-75"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card info">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="mb-0 counter" data-target="{{ users|selectattr('role', 'equalto', 'resident')|list|length }}">0</h3>
+                    <p class="mb-0">Residents</p>
+                    <small class="opacity-75">
+                        <i class="fas fa-home"></i> 
+                        Community members
+                    </small>
+                </div>
+                <i class="fas fa-user fa-2x opacity-75"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card warning">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="mb-0 counter" data-target="{{ users|selectattr('house_id', 'none')|list|length }}">0</h3>
+                    <p class="mb-0">Unassigned</p>
+                    <small class="opacity-75">
+                        {% if users|selectattr('house_id', 'none')|list|length > 0 %}
+                            <i class="fas fa-exclamation-triangle"></i> Need house assignment
+                        {% else %}
+                            <i class="fas fa-check-circle"></i> All assigned
+                        {% endif %}
+                    </small>
+                </div>
+                <i class="fas fa-user-times fa-2x opacity-75"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Search and Filter Section -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row align-items-center">
+            <div class="col-md-4">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" id="searchInput" 
+                           placeholder="Search by name, email, or house..." onkeyup="filterUsers()">
+                </div>
+            </div>
+            <div class="col-md-2">
+                <label for="roleFilter" class="form-label">Role:</label>
+                <select class="form-select" id="roleFilter" onchange="filterUsers()">
+                    <option value="all">All Roles</option>
+                    <option value="admin">Admins</option>
+                    <option value="resident">Residents</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="houseFilter" class="form-label">Assignment:</label>
+                <select class="form-select" id="houseFilter" onchange="filterUsers()">
+                    <option value="all">All Users</option>
+                    <option value="assigned">House Assigned</option>
+                    <option value="unassigned">Unassigned</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="statusFilter" class="form-label">Activity:</label>
+                <select class="form-select" id="statusFilter" onchange="filterUsers()">
+                    <option value="all">All Users</option>
+                    <option value="active">Recently Active</option>
+                    <option value="inactive">Never Logged In</option>
+                </select>
+            </div>
+            <div class="col-md-2 text-end">
+                <button class="btn btn-outline-secondary" onclick="clearAllFilters()" data-bs-toggle="tooltip" title="Clear all filters">
+                    <i class="fas fa-times"></i> Clear
+                </button>
+            </div>
+        </div>
+        
+        <!-- Filter summary -->
+        <div class="row mt-3">
+            <div class="col-12">
+                <small class="text-muted">
+                    <i class="fas fa-info-circle"></i>
+                    Showing <span id="visibleCount">{{ users|length }}</span> of {{ users|length }} users
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table" id="usersTable">
+                <thead>
+                    <tr>
+                        <th>
+                            <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" data-bs-toggle="tooltip" title="Select all users">
+                        </th>
+                        <th onclick="sortUsersTable(1)" style="cursor: pointer;">
+                            Name <i class="fas fa-sort text-muted"></i>
+                        </th>
+                        <th onclick="sortUsersTable(2)" style="cursor: pointer;">
+                            Email <i class="fas fa-sort text-muted"></i>
+                        </th>
+                        <th onclick="sortUsersTable(3)" style="cursor: pointer;">
+                            Role <i class="fas fa-sort text-muted"></i>
+                        </th>
+                        <th onclick="sortUsersTable(4)" style="cursor: pointer;">
+                            House <i class="fas fa-sort text-muted"></i>
+                        </th>
+                        <th>Phone</th>
+                        <th onclick="sortUsersTable(6)" style="cursor: pointer;">
+                            Last Login <i class="fas fa-sort text-muted"></i>
+                        </th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr data-role="{{ user.role }}" data-house-assigned="{{ 'true' if user.house_id else 'false' }}" 
+                        data-last-login="{{ user.last_login or 'never' }}">
+                        <td>
+                            <input type="checkbox" class="user-checkbox" value="{{ user.id }}" onchange="updateBulkActions()">
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="user-avatar me-2">
+                                    <i class="fas fa-user-circle fa-2x text-{{ 'danger' if user.role == 'admin' else 'primary' }}"></i>
+                                </div>
+                                <div>
+                                    <strong>{{ user.first_name }} {{ user.last_name }}</strong>
+                                    {% if user.id == session.user_id %}
+                                        <span class="badge bg-info ms-1">You</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span onclick="copyToClipboard('{{ user.email }}', 'Email copied!')" 
+                                  style="cursor: pointer;" data-bs-toggle="tooltip" title="Click to copy email">
+                                {{ user.email }} <i class="fas fa-copy text-muted"></i>
+                            </span>
+                        </td>
+                        <td>
+                            {% if user.role == 'admin' %}
+                                <span class="badge bg-danger">
+                                    <i class="fas fa-crown"></i> Admin
+                                </span>
+                            {% else %}
+                                <span class="badge bg-primary">
+                                    <i class="fas fa-user"></i> Resident
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user.house_number %}
+                                <strong>{{ user.house_number }}</strong><br>
+                                <small class="text-muted">{{ user.owner_name }}</small>
+                            {% else %}
+                                <span class="text-warning">
+                                    <i class="fas fa-exclamation-triangle"></i> Unassigned
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user.phone_number %}
+                                <span onclick="copyToClipboard('{{ user.phone_number }}', 'Phone copied!')" 
+                                      style="cursor: pointer;" data-bs-toggle="tooltip" title="Click to copy phone">
+                                    {{ user.phone_number }} <i class="fas fa-copy text-muted"></i>
+                                </span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user.last_login %}
+                                <span class="text-success" data-bs-toggle="tooltip" title="Active user">
+                                    <i class="fas fa-circle fa-xs"></i> {{ user.last_login }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted" data-bs-toggle="tooltip" title="Never logged in">
+                                    <i class="fas fa-circle fa-xs"></i> Never
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <a href="{{ url_for('edit_user', user_id=user.id) }}" 
+                                   class="btn btn-sm btn-outline-primary"
+                                   data-bs-toggle="tooltip" title="Edit user">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-info" 
+                                        onclick="viewUserDetails({{ user.id }})"
+                                        data-bs-toggle="tooltip" title="View details">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                {% if user.id != session.user_id %}
+                                <button type="button" class="btn btn-sm btn-outline-warning" 
+                                        onclick="resetUserPassword({{ user.id }}, '{{ user.first_name }} {{ user.last_name }}')"
+                                        data-bs-toggle="tooltip" title="Reset password">
+                                    <i class="fas fa-key"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                        onclick="deleteUser({{ user.id }}, '{{ user.first_name }} {{ user.last_name }}')"
+                                        data-bs-toggle="tooltip" title="Delete user">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                {% else %}
+                                <button type="button" class="btn btn-sm btn-outline-secondary" disabled
+                                        data-bs-toggle="tooltip" title="Cannot delete your own account">
+                                    <i class="fas fa-ban"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Actions Bar -->
+<div class="card" id="bulkActionsBar" style="display: none;">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <strong><span id="selectedCount">0</span> users selected</strong>
+                <small class="text-muted ms-2">Choose an action to apply to selected users</small>
+            </div>
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-primary" onclick="bulkAssignRole()">
+                    <i class="fas fa-user-tag"></i> Change Role
+                </button>
+                <button type="button" class="btn btn-outline-warning" onclick="bulkResetPasswords()">
+                    <i class="fas fa-key"></i> Reset Passwords
+                </button>
+                <button type="button" class="btn btn-outline-danger" onclick="bulkDeleteUsers()">
+                    <i class="fas fa-trash"></i> Delete Users
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="clearSelection()">
+                    <i class="fas fa-times"></i> Clear
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced User Details Modal -->
+<div class="modal fade" id="userDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-user"></i> User Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="userDetailsContent">
+                <!-- User details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-primary" onclick="printUserDetails()">
+                    <i class="fas fa-print"></i> Print
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Delete Confirmation Modal -->
+<div class="modal fade" id="deleteUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-danger"><i class="fas fa-exclamation-triangle"></i> Confirm Delete User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    <i class="fas fa-warning"></i>
+                    <strong>Warning:</strong> This action cannot be undone!
+                </div>
+                <p>Are you sure you want to delete user <strong id="deleteUserName"></strong>?</p>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="confirmDelete" required>
+                    <label class="form-check-label" for="confirmDelete">
+                        I understand this action cannot be undone
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="POST" id="deleteUserForm" style="display: inline;">
+                    <button type="submit" class="btn btn-danger" id="confirmDeleteBtn" disabled>
+                        <i class="fas fa-trash"></i> Delete User
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Actions Modal -->
+<div class="modal fade" id="bulkActionsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-tasks"></i> Bulk Actions</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="list-group">
+                    <button type="button" class="list-group-item list-group-item-action" onclick="showBulkRoleChange()">
+                        <i class="fas fa-user-tag text-primary"></i>
+                        <strong>Change User Roles</strong>
+                        <br><small class="text-muted">Assign admin or resident role to multiple users</small>
+                    </button>
+                    <button type="button" class="list-group-item list-group-item-action" onclick="showBulkHouseAssignment()">
+                        <i class="fas fa-home text-success"></i>
+                        <strong>Assign Houses</strong>
+                        <br><small class="text-muted">Link users to their respective houses</small>
+                    </button>
+                    <button type="button" class="list-group-item list-group-item-action" onclick="showBulkNotification()">
+                        <i class="fas fa-envelope text-info"></i>
+                        <strong>Send Notifications</strong>
+                        <br><small class="text-muted">Send email notifications to selected users</small>
+                    </button>
+                    <button type="button" class="list-group-item list-group-item-action text-danger" onclick="showBulkDelete()">
+                        <i class="fas fa-trash text-danger"></i>
+                        <strong>Delete Users</strong>
+                        <br><small class="text-muted">Remove multiple user accounts</small>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Enhanced search and filter functionality
+function filterUsers() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const roleFilter = document.getElementById('roleFilter').value;
+    const houseFilter = document.getElementById('houseFilter').value;
+    const statusFilter = document.getElementById('statusFilter').value;
+    const table = document.getElementById('usersTable');
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    
+    let visibleCount = 0;
+
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        let searchMatch = true;
+        let roleMatch = true;
+        let houseMatch = true;
+        let statusMatch = true;
+
+        // Search match
+        if (searchTerm) {
+            const rowText = row.textContent.toLowerCase();
+            searchMatch = rowText.includes(searchTerm);
+        }
+
+        // Role match
+        if (roleFilter !== 'all') {
+            const rowRole = row.getAttribute('data-role');
+            roleMatch = rowRole === roleFilter;
+        }
+
+        // House assignment match
+        if (houseFilter !== 'all') {
+            const hasHouse = row.getAttribute('data-house-assigned') === 'true';
+            houseMatch = (houseFilter === 'assigned' && hasHouse) || (houseFilter === 'unassigned' && !hasHouse);
+        }
+
+        // Activity status match
+        if (statusFilter !== 'all') {
+            const lastLogin = row.getAttribute('data-last-login');
+            if (statusFilter === 'active') {
+                statusMatch = lastLogin !== 'never';
+            } else if (statusFilter === 'inactive') {
+                statusMatch = lastLogin === 'never';
+            }
+        }
+
+        if (searchMatch && roleMatch && houseMatch && statusMatch) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+            // Uncheck hidden rows
+            const checkbox = row.querySelector('.user-checkbox');
+            if (checkbox) {
+                checkbox.checked = false;
+            }
+        }
+    }
+
+    document.getElementById('visibleCount').textContent = visibleCount;
+    updateBulkActions();
+}
+
+function clearAllFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('roleFilter').value = 'all';
+    document.getElementById('houseFilter').value = 'all';
+    document.getElementById('statusFilter').value = 'all';
+    filterUsers();
+}
+
+// Bulk selection functionality
+function toggleSelectAll() {
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.user-checkbox');
+    const visibleCheckboxes = Array.from(checkboxes).filter(cb => 
+        cb.closest('tr').style.display !== 'none'
+    );
+    
+    visibleCheckboxes.forEach(checkbox => {
+        checkbox.checked = selectAll.checked;
+    });
+    
+    updateBulkActions();
+}
+
+function updateBulkActions() {
+    const checkedBoxes = document.querySelectorAll('.user-checkbox:checked');
+    const count = checkedBoxes.length;
+    const bulkBar = document.getElementById('bulkActionsBar');
+    const selectedCount = document.getElementById('selectedCount');
+    
+    if (count > 0) {
+        bulkBar.style.display = 'block';
+        selectedCount.textContent = count;
+    } else {
+        bulkBar.style.display = 'none';
+    }
+    
+    // Update select all checkbox state
+    const allVisible = document.querySelectorAll('tbody tr:not([style*="display: none"]) .user-checkbox');
+    const checkedVisible = document.querySelectorAll('tbody tr:not([style*="display: none"]) .user-checkbox:checked');
+    const selectAll = document.getElementById('selectAll');
+    
+    if (checkedVisible.length === 0) {
+        selectAll.indeterminate = false;
+        selectAll.checked = false;
+    } else if (checkedVisible.length === allVisible.length) {
+        selectAll.indeterminate = false;
+        selectAll.checked = true;
+    } else {
+        selectAll.indeterminate = true;
+    }
+}
+
+function clearSelection() {
+    document.querySelectorAll('.user-checkbox').forEach(cb => cb.checked = false);
+    document.getElementById('selectAll').checked = false;
+    updateBulkActions();
+}
+
+// Enhanced user details view
+function viewUserDetails(userId) {
+    const userRow = event.target.closest('tr');
+    const cells = userRow.querySelectorAll('td');
+    
+    const userName = cells[1].textContent.trim();
+    const userEmail = cells[2].textContent.trim();
+    const userRole = cells[3].textContent.trim();
+    const userHouse = cells[4].textContent.trim();
+    const userPhone = cells[5].textContent.trim();
+    const lastLogin = cells[6].textContent.trim();
+
+    document.getElementById('userDetailsContent').innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card border-primary">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0"><i class="fas fa-user"></i> Personal Information</h6>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>User ID:</strong> ${userId}</p>
+                        <p><strong>Name:</strong> ${userName}</p>
+                        <p><strong>Email:</strong> ${userEmail}</p>
+                        <p><strong>Phone:</strong> ${userPhone || 'Not provided'}</p>
+                        <p><strong>Role:</strong> ${userRole}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-success">
+                    <div class="card-header bg-success text-white">
+                        <h6 class="mb-0"><i class="fas fa-home"></i> House & Activity</h6>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>House Assignment:</strong> ${userHouse.includes('Unassigned') ? 'Not assigned' : userHouse}</p>
+                        <p><strong>Last Login:</strong> ${lastLogin}</p>
+                        <p><strong>Account Status:</strong> <span class="badge bg-success">Active</span></p>
+                        <p><strong>Member Since:</strong> Recently</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <hr>
+        <div class="row">
+            <div class="col-12">
+                <h6><i class="fas fa-chart-line"></i> User Activity Summary</h6>
+                <div class="alert alert-light">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <strong>0</strong><br>
+                            <small class="text-muted">Bills Generated</small>
+                        </div>
+                        <div class="col-md-3">
+                            <strong>0</strong><br>
+                            <small class="text-muted">Payments Made</small>
+                        </div>
+                        <div class="col-md-3">
+                            <strong>0</strong><br>
+                            <small class="text-muted">Meter Readings</small>
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Active</strong><br>
+                            <small class="text-muted">Status</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    new bootstrap.Modal(document.getElementById('userDetailsModal')).show();
+}
+
+// Enhanced delete user with better confirmation
+async function deleteUser(userId, userName) {
+    const result = await Swal.fire({
+        title: 'Delete User Account?',
+        html: `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle"></i>
+                <strong>This action cannot be undone!</strong>
+            </div>
+            <p>Are you sure you want to delete the account for <strong>${userName}</strong>?</p>
+            <div class="form-check text-start mt-3">
+                <input class="form-check-input" type="checkbox" id="confirmUserDelete">
+                <label class="form-check-label" for="confirmUserDelete">
+                    I understand this will permanently delete the user account
+                </label>
+            </div>
+        `,
+        icon: 'error',
+        showCancelButton: true,
+        confirmButtonText: 'Delete User',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#dc2626',
+        preConfirm: () => {
+            if (!document.getElementById('confirmUserDelete').checked) {
+                Swal.showValidationMessage('Please confirm by checking the box');
+                return false;
+            }
+            return true;
+        }
+    });
+    
+    if (result.isConfirmed) {
+        showLoading('Deleting user...');
+        
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/users/${userId}/delete`;
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+// Reset password with confirmation
+async function resetUserPassword(userId, userName) {
+    const { value: newPassword } = await Swal.fire({
+        title: 'Reset Password',
+        html: `
+            <p>Reset password for <strong>${userName}</strong>?</p>
+            <input type="password" id="newPassword" class="swal2-input" placeholder="Enter new password" minlength="6">
+            <input type="password" id="confirmPassword" class="swal2-input" placeholder="Confirm new password" minlength="6">
+        `,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Reset Password',
+        cancelButtonText: 'Cancel',
+        preConfirm: () => {
+            const newPass = document.getElementById('newPassword').value;
+            const confirmPass = document.getElementById('confirmPassword').value;
+            
+            if (!newPass || newPass.length < 6) {
+                Swal.showValidationMessage('Password must be at least 6 characters');
+                return false;
+            }
+            
+            if (newPass !== confirmPass) {
+                Swal.showValidationMessage('Passwords do not match');
+                return false;
+            }
+            
+            return newPass;
+        }
+    });
+    
+    if (newPassword) {
+        showLoading('Resetting password...');
+        
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/users/${userId}/reset_password`;
+        
+        const passwordInput = document.createElement('input');
+        passwordInput.type = 'hidden';
+        passwordInput.name = 'new_password';
+        passwordInput.value = newPassword;
+        form.appendChild(passwordInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+// Table sorting functionality
+function sortUsersTable(columnIndex) {
+    const table = document.getElementById('usersTable');
+    const tbody = table.getElementsByTagName('tbody')[0];
+    const rows = Array.from(tbody.getElementsByTagName('tr'));
+    
+    const currentSort = table.getAttribute('data-sort-column');
+    const currentDirection = table.getAttribute('data-sort-direction') || 'asc';
+    const newDirection = (currentSort == columnIndex && currentDirection === 'asc') ? 'desc' : 'asc';
+    
+    rows.sort((a, b) => {
+        let aValue = a.cells[columnIndex].textContent.trim().toLowerCase();
+        let bValue = b.cells[columnIndex].textContent.trim().toLowerCase();
+        
+        // Handle dates
+        if (aValue.includes('never')) aValue = '1900-01-01';
+        if (bValue.includes('never')) bValue = '1900-01-01';
+        
+        if (aValue.match(/\d{4}-\d{2}-\d{2}/)) {
+            aValue = new Date(aValue);
+            bValue = new Date(bValue);
+        }
+        
+        if (aValue instanceof Date && bValue instanceof Date) {
+            return newDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        } else {
+            if (newDirection === 'asc') {
+                return aValue.localeCompare(bValue);
+            } else {
+                return bValue.localeCompare(aValue);
+            }
+        }
+    });
+    
+    rows.forEach(row => tbody.appendChild(row));
+    
+    table.setAttribute('data-sort-column', columnIndex);
+    table.setAttribute('data-sort-direction', newDirection);
+    
+    // Update sort icons
+    const headers = table.querySelectorAll('th i.fa-sort, th i.fa-sort-up, th i.fa-sort-down');
+    headers.forEach(icon => {
+        icon.className = 'fas fa-sort text-muted';
+    });
+    
+    const currentHeader = table.querySelectorAll('th')[columnIndex].querySelector('i');
+    if (currentHeader) {
+        currentHeader.className = `fas fa-sort-${newDirection === 'asc' ? 'up' : 'down'} text-primary`;
+    }
+}
+
+// Bulk actions functionality
+function showBulkActions() {
+    new bootstrap.Modal(document.getElementById('bulkActionsModal')).show();
+}
+
+function showBulkRoleChange() {
+    const selectedUsers = getSelectedUsers();
+    if (selectedUsers.length === 0) {
+        Swal.fire('No Users Selected', 'Please select users first.', 'warning');
+        return;
+    }
+    
+    Swal.fire({
+        title: 'Change User Roles',
+        html: `
+            <p>Change role for <strong>${selectedUsers.length}</strong> selected users:</p>
+            <select id="newRole" class="swal2-select">
+                <option value="">Select new role...</option>
+                <option value="admin">Administrator</option>
+                <option value="resident">Resident</option>
+            </select>
+        `,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Update Roles',
+        preConfirm: () => {
+            const newRole = document.getElementById('newRole').value;
+            if (!newRole) {
+                Swal.showValidationMessage('Please select a role');
+                return false;
+            }
+            return newRole;
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            showLoading('Updating user roles...');
+            setTimeout(() => {
+                hideLoading();
+                Swal.fire('Success!', `Updated roles for ${selectedUsers.length} users.`, 'success');
+                clearSelection();
+            }, 2000);
+        }
+    });
+}
+
+function showBulkHouseAssignment() {
+    const selectedUsers = getSelectedUsers();
+    if (selectedUsers.length === 0) {
+        Swal.fire('No Users Selected', 'Please select users first.', 'warning');
+        return;
+    }
+    
+    Swal.fire({
+        title: 'Bulk House Assignment',
+        text: `This feature will allow assignment of houses to ${selectedUsers.length} selected users.`,
+        icon: 'info',
+        confirmButtonText: 'Coming Soon'
+    });
+}
+
+function showBulkNotification() {
+    const selectedUsers = getSelectedUsers();
+    if (selectedUsers.length === 0) {
+        Swal.fire('No Users Selected', 'Please select users first.', 'warning');
+        return;
+    }
+    
+    Swal.fire({
+        title: 'Send Bulk Notification',
+        html: `
+            <p>Send notification to <strong>${selectedUsers.length}</strong> selected users:</p>
+            <textarea id="notificationMessage" class="swal2-textarea" placeholder="Enter your message..."></textarea>
+        `,
+        icon: 'info',
+        showCancelButton: true,
+        confirmButtonText: 'Send Notification',
+        preConfirm: () => {
+            const message = document.getElementById('notificationMessage').value;
+            if (!message.trim()) {
+                Swal.showValidationMessage('Please enter a message');
+                return false;
+            }
+            return message;
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            showLoading('Sending notifications...');
+            setTimeout(() => {
+                hideLoading();
+                Swal.fire('Success!', `Notifications sent to ${selectedUsers.length} users.`, 'success');
+                clearSelection();
+            }, 2000);
+        }
+    });
+}
+
+function showBulkDelete() {
+    const selectedUsers = getSelectedUsers();
+    if (selectedUsers.length === 0) {
+        Swal.fire('No Users Selected', 'Please select users first.', 'warning');
+        return;
+    }
+    
+    Swal.fire({
+        title: 'Delete Multiple Users?',
+        html: `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle"></i>
+                <strong>This action cannot be undone!</strong>
+            </div>
+            <p>Are you sure you want to delete <strong>${selectedUsers.length}</strong> selected users?</p>
+            <div class="form-check text-start mt-3">
+                <input class="form-check-input" type="checkbox" id="confirmBulkDelete">
+                <label class="form-check-label" for="confirmBulkDelete">
+                    I understand this will permanently delete ${selectedUsers.length} user accounts
+                </label>
+            </div>
+        `,
+        icon: 'error',
+        showCancelButton: true,
+        confirmButtonText: 'Delete Users',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#dc2626',
+        preConfirm: () => {
+            if (!document.getElementById('confirmBulkDelete').checked) {
+                Swal.showValidationMessage('Please confirm by checking the box');
+                return false;
+            }
+            return true;
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            showLoading('Deleting users...');
+            setTimeout(() => {
+                hideLoading();
+                Swal.fire('Deleted!', `${selectedUsers.length} users have been deleted.`, 'success');
+                clearSelection();
+                window.location.reload();
+            }, 2000);
+        }
+    });
+}
+
+function getSelectedUsers() {
+    return Array.from(document.querySelectorAll('.user-checkbox:checked')).map(cb => cb.value);
+}
+
+// Export functionality
+function exportUsers() {
+    showLoading('Preparing users export...');
+    
+    const table = document.getElementById('usersTable');
+    const data = [];
+    
+    // Get headers (exclude checkbox and actions columns)
+    const headers = [];
+    const headerRow = table.querySelector('thead tr');
+    for (let i = 1; i < headerRow.cells.length - 1; i++) {
+        headers.push(headerRow.cells[i].textContent.replace(/\s+/g, ' ').trim());
+    }
+    data.push(headers);
+    
+    // Get visible rows data
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        if (row.style.display !== 'none') {
+            const rowData = [];
+            for (let i = 1; i < row.cells.length - 1; i++) {
+                rowData.push(row.cells[i].textContent.replace(/\s+/g, ' ').trim());
+            }
+            data.push(rowData);
+        }
+    });
+    
+    // Create CSV content
+    const csvContent = data.map(row => 
+        row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+    
+    // Download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `users_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    hideLoading();
+    
+    Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: 'Users exported successfully!',
+        showConfirmButton: false,
+        timer: 3000
+    });
+}
+
+function printUserDetails() {
+    window.print();
+}
+
+// Real-time search with debouncing
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    let searchTimeout;
+    
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(filterUsers, 300);
+    });
+    
+    // Initialize counter animations
+    setTimeout(animateCounters, 500);
+    
+    // Initialize checkbox change handlers
+    document.querySelectorAll('.user-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', updateBulkActions);
+    });
+    
+    // Initialize delete confirmation checkbox
+    const confirmDeleteCheckbox = document.getElementById('confirmDelete');
+    if (confirmDeleteCheckbox) {
+        confirmDeleteCheckbox.addEventListener('change', function() {
+            document.getElementById('confirmDeleteBtn').disabled = !this.checked;
+        });
+    }
+    
+    // Initialize filter
+    filterUsers();
+});
+</script>
+{% endblock %}

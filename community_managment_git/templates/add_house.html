@@ -1,0 +1,416 @@
+<!-- templates/add_house.html -->
+{% extends "base.html" %}
+
+{% block title %}Add House - Community Management{% endblock %}
+
+{% block breadcrumb_items %}
+<li class="breadcrumb-item">
+    <a href="{{ url_for('houses') }}"><i class="fas fa-home"></i> Houses</a>
+</li>
+<li class="breadcrumb-item active" aria-current="page">Add House</li>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-plus"></i> Add New House</h1>
+    <p>Register a new house in the community 
+        <i class="fas fa-question-circle help-icon" 
+           data-bs-toggle="tooltip" 
+           title="All fields marked with * are required. House number must be unique."></i>
+    </p>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-home"></i> House Information</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="addHouseForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="house_number" class="form-label">
+                                    House Number *
+                                    <i class="fas fa-question-circle help-icon" 
+                                       data-bs-toggle="tooltip" 
+                                       title="Unique identifier for the house (e.g., A001, B-12, etc.)"></i>
+                                </label>
+                                <input type="text" class="form-control" id="house_number" name="house_number" required 
+                                       placeholder="e.g., A001, B-12" maxlength="10" 
+                                       pattern="^[A-Z0-9\-]+$" 
+                                       title="Use only uppercase letters, numbers, and hyphens">
+                                <div class="invalid-feedback">
+                                    Please enter a valid house number (uppercase letters, numbers, hyphens only).
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="owner_name" class="form-label">
+                                    Owner Name *
+                                    <i class="fas fa-question-circle help-icon" 
+                                       data-bs-toggle="tooltip" 
+                                       title="Full name of the property owner"></i>
+                                </label>
+                                <input type="text" class="form-control" id="owner_name" name="owner_name" required 
+                                       placeholder="Enter owner's full name" maxlength="100"
+                                       pattern="^[a-zA-Z\s\.]+$" 
+                                       title="Please enter a valid name">
+                                <div class="invalid-feedback">
+                                    Please enter a valid owner name.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="contact_number" class="form-label">
+                                    Contact Number
+                                    <i class="fas fa-question-circle help-icon" 
+                                       data-bs-toggle="tooltip" 
+                                       title="Primary phone number for communications"></i>
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-phone"></i></span>
+                                    <input type="tel" class="form-control" id="contact_number" name="contact_number" 
+                                           placeholder="10-digit mobile number" maxlength="15"
+                                           pattern="^[6-9]\d{9}$" 
+                                           title="Please enter a valid 10-digit Indian mobile number">
+                                </div>
+                                <small class="form-text text-muted">
+                                    <i class="fas fa-info-circle"></i> Indian mobile numbers starting with 6, 7, 8, or 9
+                                </small>
+                                <div class="invalid-feedback">
+                                    Please enter a valid 10-digit mobile number.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="email" class="form-label">
+                                    Email Address
+                                    <i class="fas fa-question-circle help-icon" 
+                                       data-bs-toggle="tooltip" 
+                                       title="Email for bill notifications and communications"></i>
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                                    <input type="email" class="form-control" id="email" name="email" 
+                                           placeholder="owner@example.com" maxlength="100">
+                                </div>
+                                <div class="invalid-feedback">
+                                    Please enter a valid email address.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="address" class="form-label">
+                            Complete Address
+                            <i class="fas fa-question-circle help-icon" 
+                               data-bs-toggle="tooltip" 
+                               title="Full postal address including city, state, and pincode"></i>
+                        </label>
+                        <textarea class="form-control" id="address" name="address" rows="3" 
+                                  placeholder="Enter complete address with city, state, and pincode..." maxlength="500"></textarea>
+                        <small class="form-text text-muted">
+                            <i class="fas fa-map-marker-alt"></i> Optional: Complete address for postal communications
+                        </small>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-save"></i> Save House
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-lg" onclick="resetForm()">
+                            <i class="fas fa-undo"></i> Reset Form
+                        </button>
+                        <a href="{{ url_for('houses') }}" class="btn btn-secondary btn-lg">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <!-- Form Help Card -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-lightbulb"></i> Form Guidelines</h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <h6><i class="fas fa-home text-primary"></i> House Number</h6>
+                    <small>Use a consistent format like A001, B-12, or Building1-Apt5. This cannot be changed later.</small>
+                </div>
+                <div class="mb-3">
+                    <h6><i class="fas fa-user text-success"></i> Owner Details</h6>
+                    <small>Enter the legal owner's name as it appears on documents. Contact details help with communications.</small>
+                </div>
+                <div class="mb-3">
+                    <h6><i class="fas fa-phone text-info"></i> Contact Info</h6>
+                    <small>Mobile number and email are used for bill notifications and emergency communications.</small>
+                </div>
+                <div>
+                    <h6><i class="fas fa-check-circle text-success"></i> Tips</h6>
+                    <ul class="small mb-0">
+                        <li>Double-check house number for uniqueness</li>
+                        <li>Verify contact details for accuracy</li>
+                        <li>Address helps with postal delivery</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Houses Card -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-clock"></i> Recently Added</h6>
+            </div>
+            <div class="card-body">
+                <div class="small">
+                    <div class="mb-2">
+                        <strong>A048</strong> - John Doe<br>
+                        <small class="text-muted">Added 2 hours ago</small>
+                    </div>
+                    <div class="mb-2">
+                        <strong>B-15</strong> - Jane Smith<br>
+                        <small class="text-muted">Added yesterday</small>
+                    </div>
+                    <div>
+                        <strong>C001</strong> - Mike Johnson<br>
+                        <small class="text-muted">Added 2 days ago</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Real-time form validation
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('addHouseForm');
+    const inputs = form.querySelectorAll('input, textarea');
+    
+    inputs.forEach(input => {
+        input.addEventListener('blur', validateField);
+        input.addEventListener('input', function() {
+            if (this.classList.contains('is-invalid')) {
+                validateField.call(this);
+            }
+        });
+    });
+    
+    // House number formatting
+    document.getElementById('house_number').addEventListener('input', function() {
+        this.value = this.value.toUpperCase().replace(/[^A-Z0-9\-]/g, '');
+    });
+    
+    // Owner name formatting
+    document.getElementById('owner_name').addEventListener('input', function() {
+        // Capitalize first letter of each word
+        this.value = this.value.replace(/\b\w/g, function(char) {
+            return char.toUpperCase();
+        });
+    });
+    
+    // Phone number formatting
+    document.getElementById('contact_number').addEventListener('input', function() {
+        this.value = this.value.replace(/[^0-9]/g, '');
+        if (this.value.length > 10) {
+            this.value = this.value.substring(0, 10);
+        }
+    });
+});
+
+function validateField() {
+    const value = this.value.trim();
+    const isRequired = this.hasAttribute('required');
+    const pattern = this.getAttribute('pattern');
+    
+    this.classList.remove('is-valid', 'is-invalid');
+    
+    if (isRequired && !value) {
+        this.classList.add('is-invalid');
+        return false;
+    }
+    
+    if (value && pattern) {
+        const regex = new RegExp(pattern);
+        if (!regex.test(value)) {
+            this.classList.add('is-invalid');
+            return false;
+        }
+    }
+    
+    if (this.type === 'email' && value) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(value)) {
+            this.classList.add('is-invalid');
+            return false;
+        }
+    }
+    
+    if (value || !isRequired) {
+        this.classList.add('is-valid');
+    }
+    
+    return true;
+}
+
+function resetForm() {
+    Swal.fire({
+        title: 'Reset Form?',
+        text: 'This will clear all entered data.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Reset',
+        cancelButtonText: 'Keep Data'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            document.getElementById('addHouseForm').reset();
+            document.querySelectorAll('.form-control, .form-select').forEach(input => {
+                input.classList.remove('is-valid', 'is-invalid');
+            });
+            
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: 'Form reset successfully',
+                showConfirmButton: false,
+                timer: 2000
+            });
+        }
+    });
+}
+
+// Enhanced form submission
+document.getElementById('addHouseForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    // Validate all fields
+    const inputs = this.querySelectorAll('input, textarea');
+    let isValid = true;
+    
+    inputs.forEach(input => {
+        if (!validateField.call(input)) {
+            isValid = false;
+        }
+    });
+    
+    if (!isValid) {
+        Swal.fire({
+            title: 'Validation Error',
+            text: 'Please fix the highlighted errors before submitting.',
+            icon: 'error',
+            confirmButtonColor: '#dc2626'
+        });
+        return;
+    }
+    
+    // Show confirmation
+    const houseNumber = document.getElementById('house_number').value;
+    const ownerName = document.getElementById('owner_name').value;
+    
+    const result = await confirmAction(
+        'Add House?',
+        `Add house ${houseNumber} for ${ownerName}?`,
+        'question',
+        'Yes, Add House',
+        'Cancel'
+    );
+    
+    if (result.isConfirmed) {
+        showLoading('Adding house...');
+        this.submit();
+    }
+});
+
+// Auto-save draft functionality (using sessionStorage for form recovery)
+function saveDraft() {
+    const formData = {
+        house_number: document.getElementById('house_number').value,
+        owner_name: document.getElementById('owner_name').value,
+        contact_number: document.getElementById('contact_number').value,
+        email: document.getElementById('email').value,
+        address: document.getElementById('address').value,
+        timestamp: new Date().toISOString()
+    };
+    
+    localStorage.setItem('house_form_draft', JSON.stringify(formData));
+}
+
+function loadDraft() {
+    const draft = localStorage.getItem('house_form_draft');
+    if (draft) {
+        const formData = JSON.parse(draft);
+        const draftAge = (new Date() - new Date(formData.timestamp)) / (1000 * 60); // minutes
+        
+        if (draftAge < 60) { // Only restore if less than 1 hour old
+            Swal.fire({
+                title: 'Restore Draft?',
+                text: `Found unsaved form data from ${Math.round(draftAge)} minutes ago. Restore it?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Restore',
+                cancelButtonText: 'Start Fresh'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    Object.keys(formData).forEach(key => {
+                        if (key !== 'timestamp') {
+                            const input = document.getElementById(key);
+                            if (input) {
+                                input.value = formData[key];
+                                validateField.call(input);
+                            }
+                        }
+                    });
+                    
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: 'success',
+                        title: 'Draft restored successfully',
+                        showConfirmButton: false,
+                        timer: 2000
+                    });
+                } else {
+                    localStorage.removeItem('house_form_draft');
+                }
+            });
+        } else {
+            localStorage.removeItem('house_form_draft'); // Remove old draft
+        }
+    }
+}
+
+// Auto-save on input changes
+document.addEventListener('DOMContentLoaded', function() {
+    loadDraft();
+    
+    const inputs = document.querySelectorAll('#addHouseForm input, #addHouseForm textarea');
+    inputs.forEach(input => {
+        input.addEventListener('input', function() {
+            clearTimeout(window.draftTimeout);
+            window.draftTimeout = setTimeout(saveDraft, 2000); // Save after 2 seconds of inactivity
+        });
+    });
+    
+    // Clear draft on successful submission
+    document.getElementById('addHouseForm').addEventListener('submit', function() {
+        localStorage.removeItem('house_form_draft');
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,108 @@
+<!-- templates/reports.html -->
+{% extends "base.html" %}
+
+{% block title %}Reports - Community Management{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-chart-bar"></i> Reports & Analytics</h1>
+    <p>View comprehensive reports and analytics</p>
+</div>
+
+<!-- Outstanding Dues Report -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Outstanding Dues Report</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>House Number</th>
+                        <th>Owner Name</th>
+                        <th>Maintenance Outstanding</th>
+                        <th>Water Outstanding</th>
+                        <th>Total Outstanding</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for due in outstanding_dues %}
+                    <tr>
+                        <td><strong>{{ due.house_number }}</strong></td>
+                        <td>{{ due.owner_name }}</td>
+                        <td>₹{{ "%.2f"|format(due.maintenance_outstanding) }}</td>
+                        <td>₹{{ "%.2f"|format(due.water_outstanding) }}</td>
+                        <td>₹{{ "%.2f"|format(due.total_outstanding) }}</td>
+                        <td>
+                            {% if due.total_outstanding > 0 %}
+                                <span class="badge bg-danger">Pending</span>
+                            {% else %}
+                                <span class="badge bg-success">Clear</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Monthly Collections Report -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-chart-line"></i> Monthly Collections Report</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Month</th>
+                        <th>Total Collected</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for collection in monthly_collections %}
+                    <tr>
+                        <td>{{ collection.month }}</td>
+                        <td>₹{{ "%.2f"|format(collection.total_collected) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Water Consumption Report -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-tint"></i> Recent Water Consumption</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>House Number</th>
+                        <th>Consumption</th>
+                        <th>Reading Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for consumption in water_consumption %}
+                    <tr>
+                        <td><strong>{{ consumption.house_number }}</strong></td>
+                        <td>{{ "%.2f"|format(consumption.consumption) }} units</td>
+                        <td>{{ consumption.reading_date }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

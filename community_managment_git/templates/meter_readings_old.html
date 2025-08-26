@@ -1,0 +1,184 @@
+<!-- templates/meter_readings.html -->
+{% extends "base.html" %}
+
+{% block title %}Meter Readings - Community Management{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="fas fa-tint"></i> {{ 'Meter Readings Management' if user_role == 'admin' else 'My Meter Readings' }}</h1>
+        <p>{{ 'Manage water meter readings for all houses' if user_role == 'admin' else 'View your water meter reading history' }}</p>
+    </div>
+    {% if user_role == 'admin' %}
+    <a href="{{ url_for('add_meter_reading') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Add Reading
+    </a>
+    {% endif %}
+</div>
+
+<!-- Filter Section -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row align-items-center">
+            <div class="col-md-3">
+                <label for="yearFilter" class="form-label">Year:</label>
+                <select class="form-select" id="yearFilter" onchange="applyFilters()">
+                    <option value="all" {% if current_year == 'all' %}selected{% endif %}>All Years</option>
+                    {% for year in available_years %}
+                    <option value="{{ year.year }}" {% if current_year == year.year|string %}selected{% endif %}>{{ year.year }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-9">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="stat-card success" style="padding: 15px;">
+                            <h6 class="mb-1">Showing</h6>
+                            <h4 class="mb-0">{{ readings|length }}</h4>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="stat-card info" style="padding: 15px;">
+                            <h6 class="mb-1">Total Records</h6>
+                            <h4 class="mb-0">{{ pagination.total }}</h4>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="stat-card warning" style="padding: 15px;">
+                            <h6 class="mb-1">Total Consumption</h6>
+                            <h4 class="mb-0">{{ "%.0f"|format(readings|sum(attribute='consumption') or 0) }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if readings %}
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        {% if user_role == 'admin' %}
+                        <th>House</th>
+                        <th>Owner</th>
+                        {% endif %}
+                        <th>Reading Date</th>
+                        <th>Previous Reading</th>
+                        <th>Current Reading</th>
+                        <th>Consumption</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for reading in readings %}
+                    <tr>
+                        {% if user_role == 'admin' %}
+                        <td><strong>{{ reading.house_number }}</strong></td>
+                        <td>{{ reading.owner_name }}</td>
+                        {% endif %}
+                        <td>{{ reading.reading_date }}</td>
+                        <td>{{ "%.2f"|format(reading.previous_reading or 0) }}</td>
+                        <td><strong>{{ "%.2f"|format(reading.current_reading) }}</strong></td>
+                        <td>
+                            <span class="badge bg-{{ 'success' if reading.consumption > 0 else 'secondary' }}">
+                                {{ "%.2f"|format(reading.consumption or 0) }} units
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ 'success' if reading.status == 'verified' else 'warning' }}">
+                                {{ reading.status.title() }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-tint fa-3x text-muted mb-3"></i>
+            <h4 class="text-muted">No Meter Readings Found</h4>
+            <p class="text-muted">
+                {% if user_role == 'admin' %}
+                    No meter readings have been recorded yet.
+                {% else %}
+                    No meter readings have been recorded for your house yet.
+                {% endif %}
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if pagination.pages > 1 %}
+<div class="d-flex justify-content-between align-items-center mt-4">
+    <div>
+        <small class="text-muted">
+            Showing {{ ((pagination.page - 1) * pagination.per_page + 1) }} to 
+            {{ (pagination.page * pagination.per_page) if pagination.page < pagination.pages else pagination.total }} 
+            of {{ pagination.total }} records
+        </small>
+    </div>
+    <nav>
+        <ul class="pagination">
+            {% if pagination.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('meter_readings', year=current_year, page=pagination.prev_num) }}">
+                    <i class="fas fa-chevron-left"></i> Previous
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link"><i class="fas fa-chevron-left"></i> Previous</span>
+            </li>
+            {% endif %}
+            
+            {% for page_num in range(1, pagination.pages + 1) %}
+                {% if page_num == pagination.page %}
+                <li class="page-item active">
+                    <span class="page-link">{{ page_num }}</span>
+                </li>
+                {% elif page_num == 1 or page_num == pagination.pages or (page_num >= pagination.page - 2 and page_num <= pagination.page + 2) %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('meter_readings', year=current_year, page=page_num) }}">{{ page_num }}</a>
+                </li>
+                {% elif page_num == pagination.page - 3 or page_num == pagination.page + 3 %}
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if pagination.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('meter_readings', year=current_year, page=pagination.next_num) }}">
+                    Next <i class="fas fa-chevron-right"></i>
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">Next <i class="fas fa-chevron-right"></i></span>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function applyFilters() {
+    const year = document.getElementById('yearFilter').value;
+    const url = new URL(window.location);
+    url.searchParams.set('year', year);
+    url.searchParams.delete('page'); // Reset to first page when filtering
+    window.location.href = url.toString();
+}
+</script>
+{% endblock %}

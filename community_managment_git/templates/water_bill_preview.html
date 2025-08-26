@@ -1,0 +1,382 @@
+{% extends "base.html" %}
+
+{% block title %}Water Bill Preview - Community Management{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-eye"></i> Water Bill Preview</h1>
+    <p>Review and edit calculated amounts before generating bills for {{ billing_cycle }}</p>
+</div>
+
+<!-- Summary Information -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> Billing Summary</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <strong>Billing Cycle:</strong> {{ billing_cycle }}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Rate per Unit:</strong> ₹70.00
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Total Consumption:</strong> {{ "%.2f"|format(total_consumption) }} units
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Houses:</strong> {{ house_data|length }}
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-md-3">
+                        <strong>Waste Water Charge:</strong> ₹{{ "%.2f"|format(waste_water_charge) }}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Repair Charge:</strong> ₹{{ "%.2f"|format(repair_charge) }}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Per House Waste Water:</strong> ₹{{ "%.2f"|format(waste_water_charge / house_data|length) }}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Per House Repair:</strong> ₹{{ "%.2f"|format(repair_charge / house_data|length) }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Editable Bill Preview -->
+<form method="POST" action="{{ url_for('generate_bills') }}" id="finalBillForm">
+    <input type="hidden" name="billing_cycle" value="{{ billing_cycle }}">
+    <input type="hidden" name="bill_type" value="water">
+    <input type="hidden" name="lnt_main_meter" value="{{ lnt_main_meter }}">
+    <input type="hidden" name="lnt_total_bill" value="{{ lnt_total_bill }}">
+    <input type="hidden" name="waste_water_charge" value="{{ waste_water_charge }}">
+    <input type="hidden" name="repair_charge" value="{{ repair_charge }}">
+
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-edit"></i> House-wise Bill Preview (Editable)</h5>
+            <div>
+                <button type="button" class="btn btn-sm btn-info" onclick="resetAllToCalculated()">
+                    <i class="fas fa-undo"></i> Reset All
+                </button>
+                <button type="button" class="btn btn-sm btn-warning" onclick="applyBulkAdjustment()">
+                    <i class="fas fa-percent"></i> Bulk Adjust
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> 
+                <strong>Editable Fields:</strong> You can modify Water Charge, 25% Maintenance, Waste Water, Repair Charge, and Previous Balance for each house. 
+                The Additional Amount and Total Due will update automatically.
+            </div>
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>House</th>
+                            <th>Consumption</th>
+                            <th>Water Charge</th>
+                            <th>25% Maintenance</th>
+                            <th>Waste Water</th>
+                            <th>Repair Charge</th>
+                            <th>Additional Amount</th>
+                            <th>Previous Balance<br><small>(Editable)</small></th>
+                            <th>Total Due</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for house_info in house_data %}
+                        <tr>
+                            <td>
+                                <strong>{{ house_info.house.house_number }}</strong><br>
+                                <small>{{ house_info.house.owner_name }}</small>
+                            </td>
+                            <td>
+                                <input type="number" step="0.01" class="form-control form-control-sm" 
+                                       name="consumption_{{ house_info.house.id }}" 
+                                       value="{{ '%.2f'|format(house_info.consumption) }}"
+                                       readonly style="background-color: #f8f9fa;">
+                            </td>
+                            <td>
+                                <input type="number" step="0.01" class="form-control form-control-sm water-charge" 
+                                       name="water_charge_{{ house_info.house.id }}" 
+                                       value="{{ '%.2f'|format(house_info.water_charge) }}"
+                                       data-original="{{ '%.2f'|format(house_info.water_charge) }}"
+                                       onchange="updateRowCalculation({{ house_info.house.id }})">
+                            </td>
+                            <td>
+                                <input type="number" step="0.01" class="form-control form-control-sm water-maintenance" 
+                                       name="water_maintenance_{{ house_info.house.id }}" 
+                                       value="{{ '%.2f'|format(house_info.water_maintenance) }}"
+                                       data-original="{{ '%.2f'|format(house_info.water_maintenance) }}"
+                                       onchange="updateRowCalculation({{ house_info.house.id }})">
+                            </td>
+                            <td>
+                                <input type="number" step="0.01" class="form-control form-control-sm waste-water" 
+                                       name="waste_water_{{ house_info.house.id }}" 
+                                       value="{{ '%.2f'|format(house_info.waste_water) }}"
+                                       data-original="{{ '%.2f'|format(house_info.waste_water) }}"
+                                       onchange="updateRowCalculation({{ house_info.house.id }})">
+                            </td>
+                            <td>
+                                <input type="number" step="0.01" class="form-control form-control-sm repair-charge" 
+                                       name="repair_charge_{{ house_info.house.id }}" 
+                                       value="{{ '%.2f'|format(house_info.repair_charge) }}"
+                                       data-original="{{ '%.2f'|format(house_info.repair_charge) }}"
+                                       onchange="updateRowCalculation({{ house_info.house.id }})">
+                            </td>
+                            <td>
+                                <input type="number" step="0.01" class="form-control form-control-sm additional-amount" 
+                                       id="additional_{{ house_info.house.id }}" 
+                                       value="{{ '%.2f'|format(house_info.additional_amount) }}"
+                                       readonly style="background-color: #e3f2fd;">
+                            </td>
+                            <td>
+                                <input type="number" step="0.01" class="form-control form-control-sm previous-balance" 
+                                       name="previous_balance_{{ house_info.house.id }}" 
+                                       value="{{ '%.2f'|format(house_info.previous_balance) }}"
+                                       data-original="{{ '%.2f'|format(house_info.previous_balance) }}"
+                                       onchange="updateRowCalculation({{ house_info.house.id }})"
+                                       style="background-color: #fff3cd;">
+                            </td>
+                            <td>
+                                <input type="number" step="0.01" class="form-control form-control-sm total-due" 
+                                       id="total_{{ house_info.house.id }}" 
+                                       value="{{ '%.2f'|format(house_info.total_due) }}"
+                                       readonly style="background-color: #e8f5e8;">
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-outline-warning" 
+                                        onclick="resetRow({{ house_info.house.id }})">
+                                    <i class="fas fa-undo"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr>
+                            <th>TOTALS</th>
+                            <th id="total_consumption">{{ "%.2f"|format(total_consumption) }}</th>
+                            <th id="total_water_charge">₹{{ "%.2f"|format(house_data|sum(attribute='water_charge')) }}</th>
+                            <th id="total_water_maintenance">₹{{ "%.2f"|format(house_data|sum(attribute='water_maintenance')) }}</th>
+                            <th id="total_waste_water">₹{{ "%.2f"|format(house_data|sum(attribute='waste_water')) }}</th>
+                            <th id="total_repair_charge">₹{{ "%.2f"|format(house_data|sum(attribute='repair_charge')) }}</th>
+                            <th id="total_additional">₹{{ "%.2f"|format(house_data|sum(attribute='additional_amount')) }}</th>
+                            <th id="total_previous">₹{{ "%.2f"|format(house_data|sum(attribute='previous_balance')) }}</th>
+                            <th id="total_due">₹{{ "%.2f"|format(house_data|sum(attribute='total_due')) }}</th>
+                            <th></th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="d-flex gap-2 mt-4 justify-content-center">
+        <button type="submit" class="btn btn-success btn-lg">
+            <i class="fas fa-check"></i> Generate Water Bills
+        </button>
+        <a href="{{ url_for('generate_bills') }}" class="btn btn-secondary btn-lg">
+            <i class="fas fa-arrow-left"></i> Back
+        </a>
+    </div>
+</form>
+
+<!-- Bulk Adjustment Modal -->
+<div class="modal fade" id="bulkAdjustmentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Bulk Adjustment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="adjustmentType" class="form-label">Adjustment Type</label>
+                    <select class="form-select" id="adjustmentType">
+                        <option value="percentage">Percentage Adjustment</option>
+                        <option value="fixed">Fixed Amount Adjustment</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="adjustmentValue" class="form-label">Adjustment Value</label>
+                    <input type="number" step="0.01" class="form-control" id="adjustmentValue">
+                    <small class="form-text text-muted">For percentage: 10 = +10%, -10 = -10%. For fixed: amount to add/subtract.</small>
+                </div>
+                <div class="mb-3">
+                    <label for="adjustmentField" class="form-label">Apply To</label>
+                    <select class="form-select" id="adjustmentField">
+                        <option value="water_charge">Water Charge</option>
+                        <option value="water_maintenance">25% Maintenance</option>
+                        <option value="waste_water">Waste Water</option>
+                        <option value="repair_charge">Repair Charge</option>
+                        <option value="previous_balance">Previous Balance</option>
+                        <option value="all">All Fields</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="applyBulkAdjustmentAction()">Apply</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateRowCalculation(houseId) {
+    const waterCharge = parseFloat(document.querySelector(`input[name="water_charge_${houseId}"]`).value) || 0;
+    const waterMaintenance = parseFloat(document.querySelector(`input[name="water_maintenance_${houseId}"]`).value) || 0;
+    const wasteWater = parseFloat(document.querySelector(`input[name="waste_water_${houseId}"]`).value) || 0;
+    const repairCharge = parseFloat(document.querySelector(`input[name="repair_charge_${houseId}"]`).value) || 0;
+    const previousBalance = parseFloat(document.querySelector(`input[name="previous_balance_${houseId}"]`).value) || 0;
+    
+    const additionalAmount = waterCharge + waterMaintenance + wasteWater + repairCharge;
+    const totalDue = additionalAmount + previousBalance;
+    
+    document.getElementById(`additional_${houseId}`).value = additionalAmount.toFixed(2);
+    document.getElementById(`total_${houseId}`).value = totalDue.toFixed(2);
+    
+    updateTotals();
+}
+
+function updateTotals() {
+    let totalWaterCharge = 0;
+    let totalWaterMaintenance = 0;
+    let totalWasteWater = 0;
+    let totalRepairCharge = 0;
+    let totalAdditional = 0;
+    let totalPrevious = 0;
+    let totalDue = 0;
+    
+    document.querySelectorAll('.water-charge').forEach(input => {
+        totalWaterCharge += parseFloat(input.value) || 0;
+    });
+    
+    document.querySelectorAll('.water-maintenance').forEach(input => {
+        totalWaterMaintenance += parseFloat(input.value) || 0;
+    });
+    
+    document.querySelectorAll('.waste-water').forEach(input => {
+        totalWasteWater += parseFloat(input.value) || 0;
+    });
+    
+    document.querySelectorAll('.repair-charge').forEach(input => {
+        totalRepairCharge += parseFloat(input.value) || 0;
+    });
+    
+    document.querySelectorAll('.additional-amount').forEach(input => {
+        totalAdditional += parseFloat(input.value) || 0;
+    });
+    
+    document.querySelectorAll('input[name^="previous_balance_"]').forEach(input => {
+        totalPrevious += parseFloat(input.value) || 0;
+    });
+    
+    document.querySelectorAll('.total-due').forEach(input => {
+        totalDue += parseFloat(input.value) || 0;
+    });
+    
+    document.getElementById('total_water_charge').textContent = '₹' + totalWaterCharge.toFixed(2);
+    document.getElementById('total_water_maintenance').textContent = '₹' + totalWaterMaintenance.toFixed(2);
+    document.getElementById('total_waste_water').textContent = '₹' + totalWasteWater.toFixed(2);
+    document.getElementById('total_repair_charge').textContent = '₹' + totalRepairCharge.toFixed(2);
+    document.getElementById('total_additional').textContent = '₹' + totalAdditional.toFixed(2);
+    document.getElementById('total_previous').textContent = '₹' + totalPrevious.toFixed(2);
+    document.getElementById('total_due').textContent = '₹' + totalDue.toFixed(2);
+}
+
+function resetRow(houseId) {
+    if (confirm('Reset this house to calculated values?')) {
+        const waterChargeInput = document.querySelector(`input[name="water_charge_${houseId}"]`);
+        const waterMaintenanceInput = document.querySelector(`input[name="water_maintenance_${houseId}"]`);
+        const wasteWaterInput = document.querySelector(`input[name="waste_water_${houseId}"]`);
+        const repairChargeInput = document.querySelector(`input[name="repair_charge_${houseId}"]`);
+        
+        waterChargeInput.value = waterChargeInput.dataset.original;
+        waterMaintenanceInput.value = waterMaintenanceInput.dataset.original;
+        wasteWaterInput.value = wasteWaterInput.dataset.original;
+        repairChargeInput.value = repairChargeInput.dataset.original;
+        
+        updateRowCalculation(houseId);
+    }
+}
+
+function resetAllToCalculated() {
+    if (confirm('Reset all values to calculated amounts?')) {
+        document.querySelectorAll('input[data-original]').forEach(input => {
+            input.value = input.dataset.original;
+        });
+        
+        document.querySelectorAll('input[name^="water_charge_"]').forEach(input => {
+            const houseId = input.name.replace('water_charge_', '');
+            updateRowCalculation(houseId);
+        });
+    }
+}
+
+function applyBulkAdjustment() {
+    new bootstrap.Modal(document.getElementById('bulkAdjustmentModal')).show();
+}
+
+function applyBulkAdjustmentAction() {
+    const adjustmentType = document.getElementById('adjustmentType').value;
+    const adjustmentValue = parseFloat(document.getElementById('adjustmentValue').value);
+    const adjustmentField = document.getElementById('adjustmentField').value;
+    
+    if (isNaN(adjustmentValue)) {
+        alert('Please enter a valid adjustment value');
+        return;
+    }
+    
+    const fields = adjustmentField === 'all' ? 
+        ['water_charge', 'water_maintenance', 'waste_water', 'repair_charge', 'previous_balance'] : 
+        [adjustmentField];
+    
+    fields.forEach(field => {
+        document.querySelectorAll(`input[name^="${field}_"]`).forEach(input => {
+            const currentValue = parseFloat(input.value) || 0;
+            let newValue;
+            
+            if (adjustmentType === 'percentage') {
+                newValue = currentValue * (1 + adjustmentValue / 100);
+            } else {
+                newValue = currentValue + adjustmentValue;
+            }
+            
+            input.value = Math.max(0, newValue).toFixed(2);
+        });
+    });
+    
+    document.querySelectorAll('input[name^="water_charge_"]').forEach(input => {
+        const houseId = input.name.replace('water_charge_', '');
+        updateRowCalculation(houseId);
+    });
+    
+    bootstrap.Modal.getInstance(document.getElementById('bulkAdjustmentModal')).hide();
+}
+
+document.getElementById('finalBillForm').addEventListener('submit', function(e) {
+    const totalDue = document.getElementById('total_due').textContent;
+    if (!confirm(`Generate water bills with total amount of ${totalDue}?`)) {
+        e.preventDefault();
+    }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    updateTotals();
+});
+</script>
+{% endblock %}

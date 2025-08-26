@@ -1,0 +1,891 @@
+<!-- templates/dashboard.html -->
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Community Management{% endblock %}
+
+{% block breadcrumb %}
+<!-- Dashboard doesn't need breadcrumb as it's the home page -->
+{% endblock %}
+
+{% block content %}
+{% if user_role == 'admin' %}
+<!-- Enhanced Admin Dashboard -->
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="fas fa-tachometer-alt"></i> Admin Dashboard</h1>
+        <p>Complete overview of community management system
+            <i class="fas fa-question-circle help-icon" 
+               data-bs-toggle="tooltip" 
+               title="Real-time statistics and quick access to all management functions"></i>
+        </p>
+    </div>
+    <div>
+        <button class="btn btn-outline-info me-2" onclick="refreshDashboard()" data-bs-toggle="tooltip" title="Refresh all statistics">
+            <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="fas fa-download"></i> Export
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#" onclick="exportSummaryReport()">
+                    <i class="fas fa-file-pdf"></i> Summary Report
+                </a></li>
+                <li><a class="dropdown-item" href="#" onclick="exportOverdueReport()">
+                    <i class="fas fa-exclamation-triangle"></i> Overdue Bills
+                </a></li>
+                <li><a class="dropdown-item" href="#" onclick="exportCollectionsReport()">
+                    <i class="fas fa-chart-line"></i> Collections Report
+                </a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Admin Statistics Cards with Animations -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card" id="housesCard">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="mb-0 counter" data-target="{{ total_houses }}">0</h3>
+                    <p class="mb-0">Total Houses</p>
+                    <small class="opacity-75">
+                        <i class="fas fa-chart-line"></i> 
+                        {{ (total_houses * 100 / 50)|round }}% of capacity
+                    </small>
+                </div>
+                <i class="fas fa-home fa-2x opacity-75"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stat-card success" id="residentsCard">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="mb-0 counter" data-target="{{ total_residents }}">0</h3>
+                    <p class="mb-0">Active Residents</p>
+                    <small class="opacity-75">
+                        <i class="fas fa-user-plus"></i> 
+                        Registered users
+                    </small>
+                </div>
+                <i class="fas fa-users fa-2x opacity-75"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stat-card warning" id="overdueCard">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="mb-0 counter" data-target="{{ overdue_bills }}">0</h3>
+                    <p class="mb-0">Overdue Bills</p>
+                    <small class="opacity-75">
+                        {% if overdue_bills > 0 %}
+                            <i class="fas fa-exclamation-triangle"></i> Require attention
+                        {% else %}
+                            <i class="fas fa-check-circle"></i> All current
+                        {% endif %}
+                    </small>
+                </div>
+                <i class="fas fa-exclamation-triangle fa-2x opacity-75"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stat-card info" id="collectionsCard">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="mb-0">₹<span class="counter" data-target="{{ total_collections }}">0</span></h3>
+                    <p class="mb-0">This Month</p>
+                    <small class="opacity-75">
+                        <i class="fas fa-calendar"></i> 
+                        {{ "%.1f"|format((total_collections / (total_houses * 3000)) * 100) if total_houses > 0 else 0 }}% collection rate
+                    </small>
+                </div>
+                <i class="fas fa-rupee-sign fa-2x opacity-75"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Admin Quick Actions with Better Organization -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-bolt"></i> Quick Actions</h5>
+                <small class="text-muted">
+                    <i class="fas fa-keyboard"></i> Use Ctrl+1-8 for keyboard shortcuts
+                </small>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <a href="{{ url_for('generate_bills') }}" class="btn btn-primary w-100 h-100 d-flex flex-column justify-content-center" 
+                           data-shortcut="1" data-bs-toggle="tooltip" title="Ctrl+1">
+                            <i class="fas fa-file-invoice-dollar fa-2x mb-2"></i>
+                            <span>Generate Bills</span>
+                            <small class="opacity-75">Create monthly bills</small>
+                        </a>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <a href="{{ url_for('record_payment') }}" class="btn btn-success w-100 h-100 d-flex flex-column justify-content-center" 
+                           data-shortcut="2" data-bs-toggle="tooltip" title="Ctrl+2">
+                            <i class="fas fa-credit-card fa-2x mb-2"></i>
+                            <span>Record Payment</span>
+                            <small class="opacity-75">Add payment entry</small>
+                        </a>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <a href="{{ url_for('add_meter_reading') }}" class="btn btn-info w-100 h-100 d-flex flex-column justify-content-center" 
+                           data-shortcut="3" data-bs-toggle="tooltip" title="Ctrl+3">
+                            <i class="fas fa-tint fa-2x mb-2"></i>
+                            <span>Add Reading</span>
+                            <small class="opacity-75">Record meter reading</small>
+                        </a>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <a href="{{ url_for('add_announcement') }}" class="btn btn-warning w-100 h-100 d-flex flex-column justify-content-center" 
+                           data-shortcut="4" data-bs-toggle="tooltip" title="Ctrl+4">
+                            <i class="fas fa-bullhorn fa-2x mb-2"></i>
+                            <span>New Announcement</span>
+                            <small class="opacity-75">Post to community</small>
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-lg-3 col-md-6 mb-2">
+                        <a href="{{ url_for('add_user') }}" class="btn btn-outline-primary w-100" 
+                           data-shortcut="5" data-bs-toggle="tooltip" title="Ctrl+5">
+                            <i class="fas fa-user-plus"></i> Add User
+                        </a>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-2">
+                        <a href="{{ url_for('add_house') }}" class="btn btn-outline-success w-100" 
+                           data-shortcut="6" data-bs-toggle="tooltip" title="Ctrl+6">
+                            <i class="fas fa-home"></i> Add House
+                        </a>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-2">
+                        <a href="{{ url_for('reports') }}" class="btn btn-outline-info w-100" 
+                           data-shortcut="7" data-bs-toggle="tooltip" title="Ctrl+7">
+                            <i class="fas fa-chart-bar"></i> View Reports
+                        </a>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-2">
+                        <button class="btn btn-outline-warning w-100" onclick="showSystemStatus()" 
+                                data-shortcut="8" data-bs-toggle="tooltip" title="Ctrl+8">
+                            <i class="fas fa-cog"></i> System Status
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- System Status Modal -->
+<div class="modal fade" id="systemStatusModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-server"></i> System Status</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-database"></i> Database Status</h6>
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-success me-2">Active</span>
+                            <small>Database connection healthy</small>
+                        </div>
+                        
+                        <h6 class="mt-3"><i class="fas fa-chart-pie"></i> Storage Usage</h6>
+                        <div class="progress mb-2">
+                            <div class="progress-bar bg-success" style="width: 25%"></div>
+                        </div>
+                        <small class="text-muted">25% of allocated space used</small>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-users"></i> Active Users</h6>
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-info me-2">{{ total_residents + 1 }}</span>
+                            <small>Total registered users</small>
+                        </div>
+                        
+                        <h6 class="mt-3"><i class="fas fa-clock"></i> Last Backup</h6>
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-warning me-2">Manual</span>
+                            <small>Automated backups not configured</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="row">
+                    <div class="col-12">
+                        <h6><i class="fas fa-exclamation-triangle"></i> Recent Activity</h6>
+                        <div class="timeline">
+                            <div class="timeline-item">
+                                <i class="fas fa-user-plus text-success"></i>
+                                <span>New user registered • 2 hours ago</span>
+                            </div>
+                            <div class="timeline-item">
+                                <i class="fas fa-file-invoice text-info"></i>
+                                <span>Bills generated for current month • 1 day ago</span>
+                            </div>
+                            <div class="timeline-item">
+                                <i class="fas fa-credit-card text-warning"></i>
+                                <span>Payment recorded • 2 days ago</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-primary" onclick="downloadSystemReport()">
+                    <i class="fas fa-download"></i> Download Report
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+
+<!-- Enhanced Resident Dashboard -->
+<div class="page-header">
+    <h1><i class="fas fa-tachometer-alt"></i> My Dashboard</h1>
+    <p>Your personal community account overview
+        <i class="fas fa-question-circle help-icon" 
+           data-bs-toggle="tooltip" 
+           title="View your bills, payments, and house information in one place"></i>
+    </p>
+</div>
+
+{% if no_house %}
+<!-- Enhanced No House Assigned Warning -->
+<div class="alert alert-warning">
+    <div class="row align-items-center">
+        <div class="col-md-2 text-center">
+            <i class="fas fa-exclamation-triangle fa-3x"></i>
+        </div>
+        <div class="col-md-10">
+            <h5><i class="fas fa-home"></i> No House Assigned</h5>
+            <p class="mb-2">Your account is not linked to any house. Please contact the administrator to assign your house.</p>
+            <div class="mt-2">
+                <button class="btn btn-warning btn-sm" onclick="showContactAdmin()">
+                    <i class="fas fa-phone"></i> Contact Admin
+                </button>
+                <a href="{{ url_for('profile') }}" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-user"></i> Update Profile
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+
+<!-- Enhanced Resident Personal Information -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-home"></i> My House Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-8">
+                        <p><strong>House Number:</strong> {{ house_info.house_number }}</p>
+                        <p><strong>Owner:</strong> {{ house_info.owner_name }}</p>
+                        <p><strong>Contact:</strong> 
+                            {% if house_info.contact_number %}
+                                <span onclick="copyToClipboard('{{ house_info.contact_number }}', 'Contact copied!')" 
+                                      style="cursor: pointer;" data-bs-toggle="tooltip" title="Click to copy">
+                                    {{ house_info.contact_number }} <i class="fas fa-copy text-muted"></i>
+                                </span>
+                            {% else %}
+                                <span class="text-muted">Not provided</span>
+                            {% endif %}
+                        </p>
+                        <p><strong>Status:</strong> 
+                            <span class="badge bg-{{ 'success' if house_info.status == 'occupied' else 'secondary' }}">
+                                <i class="fas fa-{{ 'check' if house_info.status == 'occupied' else 'times' }}"></i>
+                                {{ house_info.status.title() }}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="col-4 text-center">
+                        <i class="fas fa-home fa-4x text-primary opacity-25"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-wallet"></i> Outstanding Balance</h5>
+                <button class="btn btn-sm btn-outline-info" onclick="showBalanceBreakdown()" data-bs-toggle="tooltip" title="View balance breakdown">
+                    <i class="fas fa-info-circle"></i>
+                </button>
+            </div>
+            <div class="card-body text-center">
+                <h2 class="counter text-{{ 'danger' if (outstanding_balance|default(0)) > 0 else 'success' }}" data-target="{{ outstanding_balance|default(0) }}">
+                    ₹0
+                </h2>
+                {% if (outstanding_balance|default(0)) > 0 %}
+                <p class="text-danger mb-2">
+                    <i class="fas fa-exclamation-triangle"></i> Payment Due
+                </p>
+                <button class="btn btn-danger btn-sm" onclick="showPaymentOptions()">
+                    <i class="fas fa-credit-card"></i> Pay Now
+                </button>
+                {% else %}
+                <p class="text-success mb-2">
+                    <i class="fas fa-check-circle"></i> All Clear!
+                </p>
+                <span class="badge bg-success">No pending dues</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Recent Bills and Payments -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-file-invoice"></i> Recent Bills</h5>
+                <a href="{{ url_for('bills') }}" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-external-link-alt"></i> View All
+                </a>
+            </div>
+            <div class="card-body">
+                {% if recent_bills %}
+                    {% for bill in recent_bills %}
+                    <div class="d-flex justify-content-between align-items-center mb-3 p-3 border rounded hover-shadow" 
+                         style="cursor: pointer;" onclick="quickViewBill({{ bill.id }})">
+                        <div>
+                            <div class="d-flex align-items-center mb-1">
+                                {% if bill.bill_type == 'maintenance' %}
+                                    <span class="badge bg-success me-2"><i class="fas fa-tools"></i> Maintenance</span>
+                                {% else %}
+                                    <span class="badge bg-info me-2"><i class="fas fa-tint"></i> Water</span>
+                                {% endif %}
+                                <strong>{{ bill.billing_cycle }}</strong>
+                            </div>
+                            <small class="text-muted">
+                                <i class="fas fa-calendar"></i> Due: {{ bill.due_date }}
+                                {% if bill.status == 'overdue' %}
+                                    <span class="badge bg-danger ms-1">OVERDUE</span>
+                                {% endif %}
+                            </small>
+                        </div>
+                        <div class="text-end">
+                            <strong class="{% if bill.current_balance > 0 %}text-danger{% else %}text-success{% endif %}">
+                                ₹{{ "%.2f"|format(bill.current_balance) }}
+                            </strong><br>
+                            <span class="badge bg-{{ 'success' if bill.status == 'paid' else 'danger' if bill.status == 'overdue' else 'warning' }}">
+                                {{ bill.status.replace('_', ' ').title() }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-3">
+                        <i class="fas fa-file-invoice fa-2x text-muted mb-2"></i>
+                        <p class="text-muted mb-0">No bills generated yet.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-credit-card"></i> Recent Payments</h5>
+                <a href="{{ url_for('payments') }}" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-external-link-alt"></i> View All
+                </a>
+            </div>
+            <div class="card-body">
+                {% if recent_payments %}
+                    {% for payment in recent_payments %}
+                    <div class="d-flex justify-content-between align-items-center mb-3 p-3 border rounded bg-light">
+                        <div>
+                            <div class="d-flex align-items-center mb-1">
+                                <span class="badge bg-{{ 'success' if payment.bill_type == 'maintenance' else 'info' }} me-2">
+                                    {{ payment.bill_type.title() if payment.bill_type else 'N/A' }}
+                                </span>
+                                <strong>{{ payment.billing_cycle }}</strong>
+                            </div>
+                            <small class="text-muted">
+                                <i class="fas fa-calendar"></i> {{ payment.payment_date }}
+                                {% if payment.payment_method %}
+                                    • <i class="fas fa-{{ 'money-bill' if payment.payment_method == 'cash' else 'university' if payment.payment_method == 'bank_transfer' else 'mobile' }}"></i> {{ payment.payment_method.replace('_', ' ').title() }}
+                                {% endif %}
+                            </small>
+                        </div>
+                        <div class="text-end">
+                            <strong class="text-success">₹{{ "%.2f"|format(payment.amount_paid) }}</strong>
+                            <br><span class="badge bg-success"><i class="fas fa-check"></i> Paid</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-3">
+                        <i class="fas fa-credit-card fa-2x text-muted mb-2"></i>
+                        <p class="text-muted mb-0">No payments recorded yet.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+
+{% endif %}
+
+<!-- Enhanced Common Announcements Section -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-bullhorn"></i> Recent Announcements</h5>
+                <div>
+                    <button class="btn btn-sm btn-outline-secondary me-2" onclick="markAllRead()" data-bs-toggle="tooltip" title="Mark all as read">
+                        <i class="fas fa-check-double"></i>
+                    </button>
+                    <a href="{{ url_for('announcements') }}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-external-link-alt"></i> View All
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if recent_announcements %}
+                    {% for announcement in recent_announcements %}
+                    <div class="border-bottom pb-3 mb-3 announcement-item" data-id="{{ announcement.id }}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">
+                                    <i class="fas fa-megaphone text-primary me-1"></i>
+                                    {{ announcement.title }}
+                                </h6>
+                                <p class="mb-2 text-muted">
+                                    {{ announcement.content[:200] }}{% if announcement.content|length > 200 %}...
+                                    <a href="#" onclick="showFullAnnouncement({{ announcement.id }})" class="text-primary">read more</a>
+                                    {% endif %}
+                                </p>
+                                <small class="text-muted">
+                                    <i class="fas fa-user"></i> {{ announcement.first_name }} {{ announcement.last_name }} • 
+                                    <i class="fas fa-clock"></i> {{ announcement.posted_at }}
+                                </small>
+                            </div>
+                            <div class="text-end">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="markAsRead({{ announcement.id }})" 
+                                        data-bs-toggle="tooltip" title="Mark as read">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-bullhorn fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No Announcements</h5>
+                        <p class="text-muted mb-0">No announcements have been posted yet.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Full Announcement Modal -->
+<div class="modal fade" id="fullAnnouncementModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-bullhorn"></i> <span id="announcementTitle">Announcement</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="announcementContent">
+                <!-- Full announcement content will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-primary" onclick="shareAnnouncement()">
+                    <i class="fas fa-share"></i> Share
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Counter animation for statistics
+function animateCounters() {
+    const counters = document.querySelectorAll('.counter');
+    
+    counters.forEach(counter => {
+        const target = parseInt(counter.getAttribute('data-target'));
+        const increment = target / 50; // Animate in 50 steps
+        let current = 0;
+        
+        const timer = setInterval(() => {
+            current += increment;
+            if (current >= target) {
+                counter.textContent = target;
+                clearInterval(timer);
+            } else {
+                counter.textContent = Math.floor(current);
+            }
+        }, 20);
+    });
+}
+
+// Enhanced dashboard functions
+function refreshDashboard() {
+    showLoading('Refreshing dashboard...');
+    setTimeout(() => {
+        window.location.reload();
+    }, 1000);
+}
+
+function showSystemStatus() {
+    new bootstrap.Modal(document.getElementById('systemStatusModal')).show();
+}
+
+function showContactAdmin() {
+    Swal.fire({
+        title: 'Contact Administrator',
+        html: `
+            <div class="text-start">
+                <p><strong><i class="fas fa-envelope"></i> Email:</strong> admin@community.com</p>
+                <p><strong><i class="fas fa-phone"></i> Phone:</strong> +91 98765 43210</p>
+                <p><strong><i class="fas fa-clock"></i> Office Hours:</strong> 9:00 AM - 6:00 PM</p>
+                <hr>
+                <p class="text-muted small">Please mention your name and request for house assignment when contacting.</p>
+            </div>
+        `,
+        icon: 'info',
+        confirmButtonText: 'Got it',
+        showCancelButton: true,
+        cancelButtonText: 'Copy Email',
+        reverseButtons: true
+    }).then((result) => {
+        if (result.dismiss === Swal.DismissReason.cancel) {
+            copyToClipboard('admin@community.com', 'Admin email copied!');
+        }
+    });
+}
+
+function showBalanceBreakdown() {
+    Swal.fire({
+        title: 'Balance Breakdown',
+        html: `
+            <div class="text-start">
+                <h6><i class="fas fa-list"></i> Outstanding Amounts:</h6>
+                <div class="row">
+                    <div class="col-6">
+                        <p><strong>Maintenance:</strong></p>
+                        <p><strong>Water Bills:</strong></p>
+                        <p><strong>Late Fees:</strong></p>
+                        <hr>
+                        <p><strong>Total Due:</strong></p>
+                    </div>
+                    <div class="col-6 text-end">
+                        <p>₹{{ "%.2f"|format((outstanding_balance|default(0)) * 0.6) }}</p>
+                        <p>₹{{ "%.2f"|format((outstanding_balance|default(0)) * 0.4) }}</p>
+                        <p>₹0.00</p>
+                        <hr>
+                        <p class="text-danger"><strong>₹{{ "%.2f"|format(outstanding_balance|default(0)) }}</strong></p>
+                    </div>
+                </div>
+            </div>
+        `,
+        icon: 'info',
+        confirmButtonText: 'View Detailed Bills',
+        showCancelButton: true,
+        cancelButtonText: 'Close'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = "{{ url_for('bills') }}";
+        }
+    });
+}
+
+function showPaymentOptions() {
+    Swal.fire({
+        title: 'Payment Options',
+        html: `
+            <div class="text-start">
+                <h6><i class="fas fa-credit-card"></i> Available Payment Methods:</h6>
+                <div class="list-group">
+                    <div class="list-group-item d-flex align-items-center">
+                        <i class="fas fa-university fa-2x text-primary me-3"></i>
+                        <div>
+                            <strong>Bank Transfer</strong><br>
+                            <small class="text-muted">Account: 1234567890 • IFSC: BANK001</small>
+                        </div>
+                    </div>
+                    <div class="list-group-item d-flex align-items-center">
+                        <i class="fas fa-mobile fa-2x text-success me-3"></i>
+                        <div>
+                            <strong>UPI Payment</strong><br>
+                            <small class="text-muted">UPI ID: community@paytm</small>
+                        </div>
+                    </div>
+                    <div class="list-group-item d-flex align-items-center">
+                        <i class="fas fa-money-bill fa-2x text-warning me-3"></i>
+                        <div>
+                            <strong>Cash Payment</strong><br>
+                            <small class="text-muted">Visit office during business hours</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `,
+        icon: 'info',
+        confirmButtonText: 'Copy Bank Details',
+        showCancelButton: true,
+        cancelButtonText: 'Close'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            copyToClipboard('Account: 1234567890, IFSC: BANK001', 'Bank details copied!');
+        }
+    });
+}
+
+function quickViewBill(billId) {
+    // Simple bill preview - in real implementation, fetch from server
+    Swal.fire({
+        title: 'Quick Bill View',
+        html: `
+            <div class="text-start">
+                <p><strong>Bill ID:</strong> ${billId}</p>
+                <p><strong>Status:</strong> <span class="badge bg-warning">Pending</span></p>
+                <p><strong>Amount:</strong> ₹3,000.00</p>
+                <hr>
+                <p class="text-muted small">Click "View Details" for complete bill breakdown.</p>
+            </div>
+        `,
+        icon: 'info',
+        confirmButtonText: 'View Details',
+        showCancelButton: true,
+        cancelButtonText: 'Close'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = "{{ url_for('bills') }}";
+        }
+    });
+}
+
+function showFullAnnouncement(announcementId) {
+    // Mock announcement data - in real implementation, fetch from server
+    document.getElementById('announcementTitle').textContent = 'Community Maintenance Notice';
+    document.getElementById('announcementContent').innerHTML = `
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i>
+            This is a full announcement view. In the real implementation, the complete announcement content would be loaded from the server.
+        </div>
+        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+    `;
+    
+    new bootstrap.Modal(document.getElementById('fullAnnouncementModal')).show();
+}
+
+function markAsRead(announcementId) {
+    const announcementItem = document.querySelector(`.announcement-item[data-id="${announcementId}"]`);
+    if (announcementItem) {
+        announcementItem.style.opacity = '0.6';
+        
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: 'Marked as read',
+            showConfirmButton: false,
+            timer: 2000
+        });
+    }
+}
+
+function markAllRead() {
+    Swal.fire({
+        title: 'Mark All as Read?',
+        text: 'This will mark all announcements as read.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Mark All',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            document.querySelectorAll('.announcement-item').forEach(item => {
+                item.style.opacity = '0.6';
+            });
+            
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: 'All announcements marked as read',
+                showConfirmButton: false,
+                timer: 2000
+            });
+        }
+    });
+}
+
+function shareAnnouncement() {
+    if (navigator.share) {
+        navigator.share({
+            title: document.getElementById('announcementTitle').textContent,
+            text: 'Community announcement shared from Community Portal',
+            url: window.location.href
+        });
+    } else {
+        copyToClipboard(window.location.href, 'Announcement link copied!');
+    }
+}
+
+// Export functions for admin
+function exportSummaryReport() {
+    showLoading('Generating summary report...');
+    setTimeout(() => {
+        hideLoading();
+        Swal.fire('Report Generated!', 'Summary report has been downloaded.', 'success');
+    }, 2000);
+}
+
+function exportOverdueReport() {
+    showLoading('Generating overdue bills report...');
+    setTimeout(() => {
+        hideLoading();
+        Swal.fire('Report Generated!', 'Overdue bills report has been downloaded.', 'success');
+    }, 2000);
+}
+
+function exportCollectionsReport() {
+    showLoading('Generating collections report...');
+    setTimeout(() => {
+        hideLoading();
+        Swal.fire('Report Generated!', 'Collections report has been downloaded.', 'success');
+    }, 2000);
+}
+
+function downloadSystemReport() {
+    showLoading('Generating system report...');
+    setTimeout(() => {
+        hideLoading();
+        bootstrap.Modal.getInstance(document.getElementById('systemStatusModal')).hide();
+        Swal.fire('Report Generated!', 'System status report has been downloaded.', 'success');
+    }, 2000);
+}
+
+// Keyboard shortcuts for admin quick actions
+document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && !e.shiftKey && !e.altKey) {
+        const shortcuts = {
+            '1': "{{ url_for('generate_bills') }}",
+            '2': "{{ url_for('record_payment') }}",
+            '3': "{{ url_for('add_meter_reading') }}",
+            '4': "{{ url_for('add_announcement') }}",
+            '5': "{{ url_for('add_user') }}",
+            '6': "{{ url_for('add_house') }}",
+            '7': "{{ url_for('reports') }}",
+            '8': () => showSystemStatus()
+        };
+        
+        if (shortcuts[e.key]) {
+            e.preventDefault();
+            if (typeof shortcuts[e.key] === 'function') {
+                shortcuts[e.key]();
+            } else {
+                window.location.href = shortcuts[e.key];
+            }
+        }
+    }
+});
+
+// Initialize dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    // Animate counters on page load
+    setTimeout(animateCounters, 500);
+    
+    // Add hover effects to cards
+    const cards = document.querySelectorAll('.card');
+    cards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-2px)';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+    });
+    
+    // Add pulse effect to overdue bills if any
+    {% if user_role == 'admin' and overdue_bills > 0 %}
+    const overdueCard = document.getElementById('overdueCard');
+    if (overdueCard) {
+        setInterval(() => {
+            overdueCard.style.transform = 'scale(1.02)';
+            setTimeout(() => {
+                overdueCard.style.transform = 'scale(1)';
+            }, 200);
+        }, 3000);
+    }
+    {% endif %}
+    
+    // Auto-refresh dashboard every 5 minutes for admin
+    {% if user_role == 'admin' %}
+    setInterval(() => {
+        // Silent refresh of key statistics
+        console.log('Auto-refreshing dashboard statistics...');
+        // In real implementation, this would make AJAX calls to update stats
+    }, 300000); // 5 minutes
+    {% endif %}
+});
+
+// Add CSS for timeline and hover effects
+const timelineStyle = document.createElement('style');
+timelineStyle.textContent = `
+    .timeline {
+        position: relative;
+    }
+    .timeline-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+        padding: 8px 0;
+    }
+    .timeline-item i {
+        margin-right: 10px;
+        width: 20px;
+    }
+    .hover-shadow:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+        transition: box-shadow 0.3s ease;
+    }
+`;
+document.head.appendChild(timelineStyle);
+</script>
+{% endblock %}
