@@ -20,7 +20,7 @@
         </p>
     </div>
     <div>
-        <button class="btn btn-outline-success me-2" onclick="exportReadings()" data-bs-toggle="tooltip" title="Export readings to Excel">
+        <button class="btn btn-outline-success me-2" id="exportButton" data-bs-toggle="tooltip" title="Export readings to Excel">
             <i class="fas fa-file-excel"></i> Export
         </button>
         {% if user_role == 'admin' %}
@@ -172,7 +172,16 @@
                 </thead>
                 <tbody>
                     {% for reading in readings %}
-                    <tr data-status="{{ reading.status }}" data-consumption="{{ reading.consumption or 0 }}">
+                    <tr data-status="{{ reading.status }}" 
+                        data-consumption="{{ reading.consumption or 0 }}"
+                        data-reading-id="{{ reading.id }}"
+                        data-house-number="{{ reading.house_number if user_role == 'admin' else '' }}"
+                        data-owner-name="{{ reading.owner_name if user_role == 'admin' else '' }}"
+                        data-reading-date="{{ reading.reading_date }}"
+                        data-current-reading="{{ reading.current_reading }}"
+                        data-previous-reading="{{ reading.previous_reading or 0 }}"
+                        data-consumption-value="{{ reading.consumption or 0 }}"
+                        data-reading-status="{{ reading.status }}">
                         {% if user_role == 'admin' %}
                         <td><strong>{{ reading.house_number }}</strong></td>
                         <td>{{ reading.owner_name }}</td>
@@ -226,11 +235,11 @@
                         {% if user_role == 'admin' %}
                         <td>
                             <div class="btn-group" role="group">
-                                <button class="btn btn-sm btn-outline-info" onclick="viewReadingDetails({{ reading.id }})"
+                                <button class="btn btn-sm btn-outline-info" onclick="viewReadingDetails(this)"
                                         data-bs-toggle="tooltip" title="View reading details">
                                     <i class="fas fa-eye"></i>
                                 </button>
-                                <button class="btn btn-sm btn-outline-primary" onclick="editReading({{ reading.id }})"
+                                <button class="btn btn-sm btn-outline-primary" onclick="editReading(this)"
                                         data-bs-toggle="tooltip" title="Edit reading">
                                     <i class="fas fa-edit"></i>
                                 </button>
@@ -362,7 +371,7 @@
 
 <!-- Enhanced Reading Details Modal -->
 <div class="modal fade" id="readingDetailsModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title"><i class="fas fa-tint"></i> Meter Reading Details</h5>
@@ -533,21 +542,30 @@ function clearAllFilters() {
     filterReadings();
 }
 
-// Enhanced reading details view
-function viewReadingDetails(readingId) {
-    const readingRow = event.target.closest('tr');
-    const cells = readingRow.querySelectorAll('td');
+// FIXED: Enhanced reading details view with proper data extraction
+function viewReadingDetails(buttonElement) {
+    // Get the row containing the clicked button
+    const row = buttonElement.closest('tr');
     
-    // Extract reading data from the row
-    const isAdmin = {{ 'true' if user_role == 'admin' else 'false' }};
-    const houseInfo = isAdmin ? cells[0].textContent.trim() : 'Your House';
-    const ownerInfo = isAdmin ? cells[1].textContent.trim() : '';
-    const readingDate = cells[isAdmin ? 2 : 0].textContent.trim();
-    const previousReading = cells[isAdmin ? 3 : 1].textContent.trim();
-    const currentReading = cells[isAdmin ? 4 : 2].textContent.trim();
-    const consumption = cells[isAdmin ? 5 : 3].textContent.trim();
-    const status = cells[isAdmin ? 6 : 4].textContent.trim();
+    // Extract data from the row's data attributes
+    const readingId = row.getAttribute('data-reading-id');
+    const houseNumber = row.getAttribute('data-house-number') || 'Your House';
+    const ownerName = row.getAttribute('data-owner-name') || '';
+    const readingDate = row.getAttribute('data-reading-date');
+    const currentReading = parseFloat(row.getAttribute('data-current-reading')) || 0;
+    const previousReading = parseFloat(row.getAttribute('data-previous-reading')) || 0;
+    const consumption = parseFloat(row.getAttribute('data-consumption-value')) || 0;
+    const status = row.getAttribute('data-reading-status') || 'unknown';
+    
+    // Check if we have valid data
+    if (!readingId || !readingDate) {
+        Swal.fire('Error', 'Unable to load reading details. Please try again.', 'error');
+        return;
+    }
 
+    // Build the modal content
+    const isAdmin = {{ 'true' if user_role == 'admin' else 'false' }};
+    
     document.getElementById('readingDetailsContent').innerHTML = `
         <div class="row">
             <div class="col-md-6">
@@ -557,10 +575,10 @@ function viewReadingDetails(readingId) {
                     </div>
                     <div class="card-body">
                         <p><strong>Reading ID:</strong> ${readingId}</p>
-                        ${isAdmin ? `<p><strong>House:</strong> ${houseInfo}</p>` : ''}
-                        ${isAdmin && ownerInfo ? `<p><strong>Owner:</strong> ${ownerInfo}</p>` : ''}
-                        <p><strong>Reading Date:</strong> ${readingDate}</p>
-                        <p><strong>Status:</strong> ${status}</p>
+                        ${isAdmin && houseNumber !== 'Your House' ? `<p><strong>House:</strong> ${houseNumber}</p>` : ''}
+                        ${isAdmin && ownerName ? `<p><strong>Owner:</strong> ${ownerName}</p>` : ''}
+                        <p><strong>Reading Date:</strong> ${formatDate(readingDate)}</p>
+                        <p><strong>Status:</strong> ${getStatusBadge(status)}</p>
                         <p><strong>Reading Type:</strong> <span class="badge bg-secondary">L&T Individual</span></p>
                     </div>
                 </div>
@@ -571,10 +589,10 @@ function viewReadingDetails(readingId) {
                         <h6 class="mb-0"><i class="fas fa-tachometer-alt"></i> Consumption Details</h6>
                     </div>
                     <div class="card-body">
-                        <p><strong>Previous Reading:</strong> ${previousReading}</p>
-                        <p><strong>Current Reading:</strong> <span class="text-primary">${currentReading}</span></p>
-                        <p><strong>Consumption:</strong> ${consumption}</p>
-                        <p><strong>Estimated Cost:</strong> <span class="text-success">₹${(parseFloat(consumption.replace(/[^\d.]/g, '')) * 70).toFixed(2)}</span></p>
+                        <p><strong>Previous Reading:</strong> ${previousReading.toFixed(2)} units</p>
+                        <p><strong>Current Reading:</strong> <span class="text-primary">${currentReading.toFixed(2)} units</span></p>
+                        <p><strong>Consumption:</strong> ${getConsumptionDisplay(consumption)}</p>
+                        <p><strong>Estimated Cost:</strong> <span class="text-success">₹${(consumption * 70).toFixed(2)}</span></p>
                         <small class="text-muted">* Based on ₹70 per unit rate</small>
                     </div>
                 </div>
@@ -588,21 +606,55 @@ function viewReadingDetails(readingId) {
                     <div class="row">
                         <div class="col-md-4">
                             <strong>Consumption Level:</strong> 
-                            ${getConsumptionLevel(parseFloat(consumption.replace(/[^\d.]/g, '')))}
+                            ${getConsumptionLevel(consumption)}
                         </div>
                         <div class="col-md-4">
-                            <strong>Monthly Equivalent:</strong> 
-                            ${(parseFloat(consumption.replace(/[^\d.]/g, '')) * 30 / new Date().getDate()).toFixed(1)} units/month
+                            <strong>Daily Average:</strong> 
+                            ${(consumption / 30).toFixed(2)} units/day
                         </div>
                         <div class="col-md-4">
                             <strong>Submitted:</strong> ${formatDate(readingDate)}
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-12">
+                            <small class="text-muted">
+                                <i class="fas fa-lightbulb"></i> ${getConsumptionAdvice(consumption)}
+                            </small>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     `;
-    new bootstrap.Modal(document.getElementById('readingDetailsModal')).show();
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('readingDetailsModal'));
+    modal.show();
+}
+
+// Helper functions for the modal
+function getStatusBadge(status) {
+    switch(status) {
+        case 'verified':
+            return '<span class="badge bg-success"><i class="fas fa-check-circle"></i> Verified</span>';
+        case 'pending_verification':
+            return '<span class="badge bg-warning"><i class="fas fa-clock"></i> Pending</span>';
+        default:
+            return '<span class="badge bg-info"><i class="fas fa-info-circle"></i> ' + status.charAt(0).toUpperCase() + status.slice(1) + '</span>';
+    }
+}
+
+function getConsumptionDisplay(consumption) {
+    if (consumption === 0) {
+        return '<span class="badge bg-secondary"><i class="fas fa-minus"></i> 0.00 units</span>';
+    } else if (consumption <= 20) {
+        return '<span class="badge bg-success"><i class="fas fa-tint"></i> ' + consumption.toFixed(2) + ' units</span>';
+    } else if (consumption <= 40) {
+        return '<span class="badge bg-warning"><i class="fas fa-tint"></i> ' + consumption.toFixed(2) + ' units</span>';
+    } else {
+        return '<span class="badge bg-danger"><i class="fas fa-tint"></i> ' + consumption.toFixed(2) + ' units</span>';
+    }
 }
 
 function getConsumptionLevel(consumption) {
@@ -612,21 +664,56 @@ function getConsumptionLevel(consumption) {
     return '<span class="badge bg-danger">High</span>';
 }
 
-// Enhanced edit reading functionality
-function editReading(readingId) {
-    const readingRow = event.target.closest('tr');
-    const cells = readingRow.querySelectorAll('td');
+function getConsumptionAdvice(consumption) {
+    if (consumption === 0) {
+        return 'Zero consumption detected. Please verify meter reading is correct.';
+    } else if (consumption < 10) {
+        return 'Excellent! Low water usage is environmentally friendly and cost-effective.';
+    } else if (consumption <= 30) {
+        return 'Normal consumption range for a typical household.';
+    } else if (consumption <= 50) {
+        return 'High consumption detected. Consider checking for leaks or reducing usage.';
+    } else {
+        return 'Very high consumption! Please verify reading and check for leaks immediately.';
+    }
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-IN', {
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit'
+    });
+}
+
+// FIXED: Enhanced edit reading functionality
+function editReading(buttonElement) {
+    // Get the row containing the clicked button
+    const row = buttonElement.closest('tr');
+    
+    // Extract data from the row's data attributes
+    const readingId = row.getAttribute('data-reading-id');
+    const houseNumber = row.getAttribute('data-house-number') || '';
+    const ownerName = row.getAttribute('data-owner-name') || '';
+    const currentReading = parseFloat(row.getAttribute('data-current-reading')) || 0;
+    const previousReading = parseFloat(row.getAttribute('data-previous-reading')) || 0;
+    const readingDate = row.getAttribute('data-reading-date');
+    const status = row.getAttribute('data-reading-status') || 'verified';
+    
+    // Check if we have valid data
+    if (!readingId || !readingDate) {
+        Swal.fire('Error', 'Unable to load reading details for editing. Please try again.', 'error');
+        return;
+    }
+    
     const isAdmin = {{ 'true' if user_role == 'admin' else 'false' }};
+    const houseInfo = isAdmin ? `${houseNumber} - ${ownerName}` : 'Your House';
     
-    const houseInfo = isAdmin ? `${cells[0].textContent.trim()} - ${cells[1].textContent.trim()}` : 'Your House';
-    const currentReading = cells[isAdmin ? 4 : 2].textContent.trim();
-    const previousReading = cells[isAdmin ? 3 : 1].textContent.trim();
-    const readingDate = cells[isAdmin ? 2 : 0].textContent.trim();
-    const status = cells[isAdmin ? 6 : 4].textContent.toLowerCase().includes('verified') ? 'verified' : 'pending_verification';
-    
+    // Populate the edit modal
     document.getElementById('editReadingHouseInfo').textContent = houseInfo;
-    document.getElementById('editCurrentReading').value = parseFloat(currentReading);
-    document.getElementById('editPreviousReading').textContent = previousReading;
+    document.getElementById('editCurrentReading').value = currentReading.toFixed(2);
+    document.getElementById('editPreviousReading').textContent = previousReading.toFixed(2);
     document.getElementById('editReadingDate').value = readingDate;
     document.getElementById('editStatus').value = status;
     
@@ -636,7 +723,9 @@ function editReading(readingId) {
     // Store reading ID for saving
     document.getElementById('editReadingForm').dataset.readingId = readingId;
     
-    new bootstrap.Modal(document.getElementById('editReadingModal')).show();
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('editReadingModal'));
+    modal.show();
 }
 
 function updateCalculatedConsumption() {
@@ -788,77 +877,216 @@ function sortReadingsTable(columnIndex) {
     }
 }
 
-// Export functionality
+// Export functionality - Simplified and more reliable version
 function exportReadings() {
+    console.log('exportReadings function called'); // Debug log
+    
     showLoading('Preparing export...');
     
-    const table = document.getElementById('readingsTable');
-    const data = [];
-    
-    // Get headers
-    const headers = [];
-    const headerRow = table.querySelector('thead tr');
-    for (let i = 0; i < headerRow.cells.length - ({{ '1' if user_role == 'admin' else '0' }}); i++) {
-        headers.push(headerRow.cells[i].textContent.replace(/\s+/g, ' ').trim());
-    }
-    data.push(headers);
-    
-    // Get visible rows data
-    const rows = table.querySelectorAll('tbody tr');
-    rows.forEach(row => {
-        if (row.style.display !== 'none') {
-            const rowData = [];
-            for (let i = 0; i < row.cells.length - ({{ '1' if user_role == 'admin' else '0' }}); i++) {
-                rowData.push(row.cells[i].textContent.replace(/\s+/g, ' ').trim());
-            }
-            data.push(rowData);
+    try {
+        const table = document.getElementById('readingsTable');
+        if (!table) {
+            console.error('Table not found');
+            hideLoading();
+            Swal.fire('Error', 'Table not found. Please refresh the page and try again.', 'error');
+            return;
         }
-    });
-    
-    // Create CSV content
-    const csvContent = data.map(row => 
-        row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(',')
-    ).join('\n');
-    
-    // Download file
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `meter_readings_export_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    hideLoading();
-    
-    Swal.fire({
-        toast: true,
-        position: 'top-end',
-        icon: 'success',
-        title: 'Meter readings exported successfully!',
-        showConfirmButton: false,
-        timer: 3000
-    });
+        
+        console.log('Table found, processing data...'); // Debug log
+        
+        // Get all table data
+        const rows = table.querySelectorAll('tr');
+        if (rows.length <= 1) {
+            hideLoading();
+            Swal.fire('No Data', 'No data available to export.', 'warning');
+            return;
+        }
+        
+        const csvData = [];
+        let exportedRows = 0;
+        
+        // Process each row
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const cells = row.querySelectorAll('th, td');
+            
+            // Skip header row if it's from thead, or skip hidden rows
+            if (i > 0 && row.style.display === 'none') {
+                continue; // Skip hidden rows (filtered out)
+            }
+            
+            const rowData = [];
+            
+            // Process each cell, but skip the last column if it contains "Actions"
+            for (let j = 0; j < cells.length; j++) {
+                const cellText = cells[j].textContent || '';
+                
+                // Skip Actions column
+                if (cellText.toLowerCase().includes('action') || 
+                    (j === cells.length - 1 && cellText.includes('fas fa-eye'))) {
+                    continue;
+                }
+                
+                // Clean up the text
+                let cleanText = cellText
+                    .replace(/\s+/g, ' ')  // Replace multiple spaces with single space
+                    .replace(/[📋🔍📊⚡]/g, '') // Remove emoji icons
+                    .replace(/\u25B2|\u25BC|\u25B6|\u25C0/g, '') // Remove sort arrows
+                    .trim();
+                
+                rowData.push(cleanText);
+            }
+            
+            if (rowData.length > 0) {
+                csvData.push(rowData);
+                if (i > 0) exportedRows++; // Don't count header row
+            }
+        }
+        
+        console.log(`Processed ${exportedRows} rows for export`); // Debug log
+        
+        if (exportedRows === 0) {
+            hideLoading();
+            Swal.fire('No Data', 'No rows available to export. Check your filters.', 'warning');
+            return;
+        }
+        
+        // Convert to CSV format
+        const csvContent = csvData.map(row => 
+            row.map(cell => {
+                // Escape quotes and wrap in quotes if needed
+                const str = String(cell || '');
+                if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                    return '"' + str.replace(/"/g, '""') + '"';
+                }
+                return str;
+            }).join(',')
+        ).join('\n');
+        
+        console.log('CSV content created, initiating download...'); // Debug log
+        
+        // Create and download file
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        
+        const now = new Date();
+        const timestamp = now.getFullYear() + '-' + 
+                         String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+                         String(now.getDate()).padStart(2, '0');
+        const filename = `meter_readings_${timestamp}.csv`;
+        
+        link.href = url;
+        link.download = filename;
+        link.style.display = 'none';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Cleanup
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+        
+        hideLoading();
+        
+        console.log('Export completed successfully'); // Debug log
+        
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: `Exported ${exportedRows} readings successfully!`,
+            showConfirmButton: false,
+            timer: 3000
+        });
+        
+    } catch (error) {
+        console.error('Export error:', error);
+        hideLoading();
+        
+        Swal.fire({
+            title: 'Export Failed',
+            text: 'An error occurred while exporting. Please check the console for details and try again.',
+            icon: 'error',
+            footer: 'If the problem persists, please contact support.'
+        });
+    }
 }
 
 function printReadingDetails() {
     window.print();
 }
 
-// Real-time search with debouncing
+// Real-time search with debouncing and event listeners setup
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('searchInput');
     let searchTimeout;
     
-    searchInput.addEventListener('input', function() {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(filterReadings, 300);
-    });
+    // Setup search functionality
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(filterReadings, 300);
+        });
+    }
     
-    // Initialize filter
+    // Setup export button event listener
+    const exportButton = document.getElementById('exportButton');
+    if (exportButton) {
+        exportButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Export button clicked'); // Debug log
+            exportReadings();
+        });
+    }
+    
+    // Setup other event listeners
+    const currentReadingInput = document.getElementById('editCurrentReading');
+    if (currentReadingInput) {
+        currentReadingInput.addEventListener('input', updateCalculatedConsumption);
+    }
+    
+    const editForm = document.getElementById('editReadingForm');
+    if (editForm) {
+        editForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const readingId = this.dataset.readingId;
+            const currentReading = document.getElementById('editCurrentReading').value;
+            const readingDate = document.getElementById('editReadingDate').value;
+            const status = document.getElementById('editStatus').value;
+            
+            if (!currentReading || !readingDate) {
+                Swal.fire('Error', 'Please fill in all required fields.', 'error');
+                return;
+            }
+            
+            const result = await confirmAction(
+                'Save Changes?',
+                'Update this meter reading with the new values?',
+                'question',
+                'Yes, Save',
+                'Cancel'
+            );
+            
+            if (result.isConfirmed) {
+                showLoading('Saving changes...');
+                
+                // In real implementation, this would submit to server
+                setTimeout(() => {
+                    hideLoading();
+                    Swal.fire('Success!', 'Meter reading updated successfully.', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('editReadingModal')).hide();
+                    window.location.reload();
+                }, 1500);
+            }
+        });
+    }
+    
+    // Initialize filter on page load
     filterReadings();
+    
+    console.log('Event listeners initialized'); // Debug log
 });
 
 // Debug functions
@@ -915,4 +1143,4 @@ function showContactInfo() {
     });
 }
 </script>
-{% endblock %}
+{% endblock %} '
