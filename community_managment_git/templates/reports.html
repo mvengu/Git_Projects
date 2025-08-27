@@ -1,29 +1,163 @@
 <!-- templates/reports.html -->
 {% extends "base.html" %}
 
+function exportWaterBillAnalysis() {
+    const table = document.getElementById('waterBillAnalysisTable');
+    if (!table) {
+        Swal.fire('No Data', 'No water bill analysis data to export.', 'info');
+        return;
+    }
+    
+    showLoading('Exporting water bill analysis...');
+    
+    const csvContent = tableToCSV(table, 'Water Bill Analysis by Billing Cycle');
+    downloadCSV(csvContent, `water_bill_analysis_${new Date().toISOString().split('T')[0]}.csv`);
+    
+    hideLoading();
+    
+    Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: 'Water bill analysis exported successfully!',
+        showConfirmButton: false,
+        timer: 3000
+    });
+}
+
 {% block title %}Reports - Community Management{% endblock %}
 
+{% block breadcrumb_items %}
+<li class="breadcrumb-item active" aria-current="page">
+    <i class="fas fa-chart-bar"></i> Reports
+</li>
+{% endblock %}
+
 {% block content %}
-<div class="page-header">
-    <h1><i class="fas fa-chart-bar"></i> Reports & Analytics</h1>
-    <p>View comprehensive reports and analytics</p>
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="fas fa-chart-bar"></i> {{ 'Analytics Dashboard' if user_role == 'admin' else 'My Reports' }}</h1>
+        <p>{{ 'Comprehensive community reports and analytics' if user_role == 'admin' else 'Your personal account reports and statistics' }}
+            <i class="fas fa-question-circle help-icon" 
+               data-bs-toggle="tooltip" 
+               title="{{ 'View detailed analytics and reports for the entire community' if user_role == 'admin' else 'Track your personal billing and payment history' }}"></i>
+        </p>
+    </div>
+    <div>
+        {% if available_years and available_years|length > 1 %}
+        <div class="btn-group me-2" role="group">
+            <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="fas fa-filter"></i> Year: {{ current_year if current_year != 'all' else 'All' }}
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="?year=all">All Years</a></li>
+                {% for year in available_years %}
+                <li><a class="dropdown-item {{ 'active' if current_year == year.year|string else '' }}" 
+                       href="?year={{ year.year }}">{{ year.year }}</a></li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        <button class="btn btn-outline-success" onclick="exportReports()" data-bs-toggle="tooltip" title="Export reports">
+            <i class="fas fa-download"></i> Export
+        </button>
+    </div>
+</div>
+
+{% if user_role == 'admin' %}
+<!-- Admin Reports Section -->
+
+<!-- Quick Stats Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="mb-0 counter" data-target="{{ outstanding_dues|length }}">0</h3>
+                    <p class="mb-0">Properties</p>
+                    <small class="opacity-75">
+                        <i class="fas fa-home"></i> Total tracked
+                    </small>
+                </div>
+                <i class="fas fa-building fa-2x opacity-75"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card warning">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="mb-0 counter" data-target="{{ outstanding_dues|selectattr('total_outstanding', 'greaterthan', 0)|list|length }}">0</h3>
+                    <p class="mb-0">Outstanding</p>
+                    <small class="opacity-75">
+                        <i class="fas fa-exclamation-triangle"></i> Need attention
+                    </small>
+                </div>
+                <i class="fas fa-exclamation-triangle fa-2x opacity-75"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card success">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="mb-0 counter" data-target="{{ "%.0f"|format(monthly_collections|sum(attribute='total_collected') or 0) }}">0</h3>
+                    <p class="mb-0">Collections</p>
+                    <small class="opacity-75">
+                        <i class="fas fa-chart-line"></i> Period total
+                    </small>
+                </div>
+                <i class="fas fa-rupee-sign fa-2x opacity-75"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card info">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="mb-0 counter" data-target="{{ "%.0f"|format(water_consumption|sum(attribute='total_consumption') or 0) }}">0</h3>
+                    <p class="mb-0">Water Units</p>
+                    <small class="opacity-75">
+                        <i class="fas fa-tint"></i> Total consumption
+                    </small>
+                </div>
+                <i class="fas fa-tint fa-2x opacity-75"></i>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Outstanding Dues Report -->
 <div class="card mb-4">
-    <div class="card-header">
-        <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Outstanding Dues Report</h5>
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-exclamation-triangle text-warning"></i> Outstanding Dues Report</h5>
+        <div>
+            <button class="btn btn-sm btn-outline-primary" onclick="exportOutstandingDues()">
+                <i class="fas fa-file-excel"></i> Export
+            </button>
+        </div>
     </div>
     <div class="card-body">
+        {% if outstanding_dues %}
         <div class="table-responsive">
-            <table class="table">
+            <table class="table table-striped" id="outstandingDuesTable">
                 <thead>
                     <tr>
-                        <th>House Number</th>
-                        <th>Owner Name</th>
-                        <th>Maintenance Outstanding</th>
-                        <th>Water Outstanding</th>
-                        <th>Total Outstanding</th>
+                        <th onclick="sortTable('outstandingDuesTable', 0)" style="cursor: pointer;">
+                            House Number <i class="fas fa-sort text-muted"></i>
+                        </th>
+                        <th onclick="sortTable('outstandingDuesTable', 1)" style="cursor: pointer;">
+                            Owner Name <i class="fas fa-sort text-muted"></i>
+                        </th>
+                        <th onclick="sortTable('outstandingDuesTable', 2)" style="cursor: pointer;">
+                            Maintenance Outstanding <i class="fas fa-sort text-muted"></i>
+                        </th>
+                        <th onclick="sortTable('outstandingDuesTable', 3)" style="cursor: pointer;">
+                            Water Outstanding <i class="fas fa-sort text-muted"></i>
+                        </th>
+                        <th onclick="sortTable('outstandingDuesTable', 4)" style="cursor: pointer;">
+                            Total Outstanding <i class="fas fa-sort text-muted"></i>
+                        </th>
                         <th>Status</th>
                     </tr>
                 </thead>
@@ -34,26 +168,649 @@
                         <td>{{ due.owner_name }}</td>
                         <td>₹{{ "%.2f"|format(due.maintenance_outstanding) }}</td>
                         <td>₹{{ "%.2f"|format(due.water_outstanding) }}</td>
-                        <td>₹{{ "%.2f"|format(due.total_outstanding) }}</td>
+                        <td>
+                            <strong class="{% if due.total_outstanding > 0 %}text-danger{% else %}text-success{% endif %}">
+                                ₹{{ "%.2f"|format(due.total_outstanding) }}
+                            </strong>
+                        </td>
                         <td>
                             {% if due.total_outstanding > 0 %}
-                                <span class="badge bg-danger">Pending</span>
+                                {% if due.total_outstanding > 5000 %}
+                                    <span class="badge bg-danger">High Priority</span>
+                                {% else %}
+                                    <span class="badge bg-warning">Pending</span>
+                                {% endif %}
                             {% else %}
-                                <span class="badge bg-success">Clear</span>
+                                <span class="badge bg-success">Paid Up</span>
                             {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <th colspan="2">TOTALS</th>
+                        <th>₹{{ "%.2f"|format(outstanding_dues|sum(attribute='maintenance_outstanding')) }}</th>
+                        <th>₹{{ "%.2f"|format(outstanding_dues|sum(attribute='water_outstanding')) }}</th>
+                        <th><strong class="text-danger">₹{{ "%.2f"|format(outstanding_dues|sum(attribute='total_outstanding')) }}</strong></th>
+                        <th>{{ outstanding_dues|selectattr('total_outstanding', 'greaterthan', 0)|list|length }} pending</th>
+                    </tr>
+                </tfoot>
             </table>
         </div>
+        {% else %}
+        <div class="text-center py-4">
+            <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+            <h5>No Outstanding Dues</h5>
+            <p class="text-muted">All bills are paid up to date!</p>
+        </div>
+        {% endif %}
     </div>
 </div>
 
 <!-- Monthly Collections Report -->
 <div class="card mb-4">
     <div class="card-header">
-        <h5 class="mb-0"><i class="fas fa-chart-line"></i> Monthly Collections Report</h5>
+        <h5 class="mb-0"><i class="fas fa-chart-line text-success"></i> Monthly Collections Report</h5>
+    </div>
+    <div class="card-body">
+        {% if monthly_collections %}
+        <div class="row">
+            <div class="col-md-8">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Month</th>
+                                <th>Number of Payments</th>
+                                <th>Total Collected</th>
+                                <th>Average per Payment</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for collection in monthly_collections %}
+                            <tr>
+                                <td><strong>{{ collection.month }}</strong></td>
+                                <td>
+                                    <span class="badge bg-info">{{ collection.payment_count or 0 }} payments</span>
+                                </td>
+                                <td><strong class="text-success">₹{{ "%.2f"|format(collection.total_collected) }}</strong></td>
+                                <td>₹{{ "%.2f"|format(collection.total_collected / (collection.payment_count or 1)) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <th>TOTAL</th>
+                                <th>{{ monthly_collections|sum(attribute='payment_count') or 0 }} payments</th>
+                                <th><strong class="text-success">₹{{ "%.2f"|format(monthly_collections|sum(attribute='total_collected')) }}</strong></th>
+                                <th>₹{{ "%.2f"|format((monthly_collections|sum(attribute='total_collected')) / (monthly_collections|sum(attribute='payment_count') or 1)) }}</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-calculator"></i> Collection Stats</h6>
+                    <p><strong>Total Collected:</strong> ₹{{ "%.2f"|format(monthly_collections|sum(attribute='total_collected')) }}</p>
+                    <p><strong>Average per Month:</strong> ₹{{ "%.2f"|format((monthly_collections|sum(attribute='total_collected')) / (monthly_collections|length or 1)) }}</p>
+                    <p><strong>Total Payments:</strong> {{ monthly_collections|sum(attribute='payment_count') or 0 }}</p>
+                    <p><strong>Period:</strong> {{ monthly_collections|length or 0 }} months</p>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center py-4">
+            <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
+            <h5>No Collections Data</h5>
+            <p class="text-muted">No payments have been recorded for the selected period.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Water Consumption Report -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-tint text-info"></i> Water Consumption Analysis</h5>
+    </div>
+    <div class="card-body">
+        {% if water_consumption %}
+        <div class="row">
+            <div class="col-md-8">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>House Number</th>
+                                <th>Total Consumption</th>
+                                <th>Average per Reading</th>
+                                <th>Number of Readings</th>
+                                <th>Last Reading Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for consumption in water_consumption %}
+                            <tr>
+                                <td><strong>{{ consumption.house_number }}</strong></td>
+                                <td>
+                                    {% if consumption.total_consumption and consumption.total_consumption > 0 %}
+                                        <span class="badge bg-{{ 'danger' if consumption.total_consumption > 100 else 'warning' if consumption.total_consumption > 50 else 'success' }}">
+                                            {{ "%.1f"|format(consumption.total_consumption) }} units
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">0.0 units</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ "%.1f"|format(consumption.avg_consumption or 0) }} units</td>
+                                <td>{{ consumption.reading_count or 0 }}</td>
+                                <td>{{ consumption.last_reading_date or 'No readings' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <th>TOTALS</th>
+                                <th><strong>{{ "%.1f"|format(water_consumption|sum(attribute='total_consumption') or 0) }} units</strong></th>
+                                <th>{{ "%.1f"|format((water_consumption|sum(attribute='total_consumption') or 0) / (water_consumption|length or 1)) }} units</th>
+                                <th>{{ water_consumption|sum(attribute='reading_count') or 0 }}</th>
+                                <th>{{ water_consumption|length or 0 }} houses</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="alert alert-light">
+                    <h6><i class="fas fa-tint"></i> Consumption Summary</h6>
+                    <p><strong>Total Consumption:</strong> {{ "%.1f"|format(water_consumption|sum(attribute='total_consumption') or 0) }} units</p>
+                    <p><strong>Average per House:</strong> {{ "%.1f"|format((water_consumption|sum(attribute='total_consumption') or 0) / (water_consumption|length or 1)) }} units</p>
+                    <p><strong>Houses Tracked:</strong> {{ water_consumption|length or 0 }}</p>
+                    
+                    <hr>
+                    <h6><i class="fas fa-chart-pie"></i> Consumption Levels</h6>
+                    <div class="small">
+                        <div class="mb-1">
+                            <span class="badge bg-success">Low (0-25):</span> 
+                            {{ water_consumption|selectattr('total_consumption', 'lessthan', 25)|list|length }}
+                        </div>
+                        <div class="mb-1">
+                            <span class="badge bg-warning">Medium (25-75):</span> 
+                            {% set medium_count = 0 %}
+                            {% for item in water_consumption %}
+                                {% if (item.total_consumption or 0) >= 25 and (item.total_consumption or 0) <= 75 %}
+                                    {% set medium_count = medium_count + 1 %}
+                                {% endif %}
+                            {% endfor %}
+                            {{ medium_count }}
+                        </div>
+                        <div>
+                            <span class="badge bg-danger">High (75+):</span> 
+                            {{ water_consumption|selectattr('total_consumption', 'greaterthan', 75)|list|length }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center py-4">
+            <i class="fas fa-tint fa-3x text-muted mb-3"></i>
+            <h5>No Consumption Data</h5>
+            <p class="text-muted">No water consumption data available for the selected period.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Bill Summary -->
+{% if bill_summary %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-file-invoice-dollar text-primary"></i> Bill Generation Summary</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            {% for bill in bill_summary %}
+            <div class="col-md-6 mb-3">
+                <div class="card border-{{ 'success' if bill.bill_type == 'maintenance' else 'info' }}">
+                    <div class="card-header bg-{{ 'success' if bill.bill_type == 'maintenance' else 'info' }} text-white">
+                        <h6 class="mb-0">
+                            <i class="fas fa-{{ 'tools' if bill.bill_type == 'maintenance' else 'tint' }}"></i>
+                            {{ bill.bill_type.title() }} Bills
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <h4>{{ bill.bill_count }}</h4>
+                                <small>Bills Generated</small>
+                            </div>
+                            <div class="col-6">
+                                <h4>₹{{ "%.0f"|format(bill.total_amount) }}</h4>
+                                <small>Total Amount</small>
+                            </div>
+                        </div>
+                        <hr>
+                        <p class="mb-1"><strong>Amount Paid:</strong> <span class="text-success">₹{{ "%.2f"|format(bill.total_paid) }}</span></p>
+                        <p class="mb-0"><strong>Outstanding:</strong> <span class="text-danger">₹{{ "%.2f"|format(bill.total_outstanding) }}</span></p>
+                        <div class="progress mt-2" style="height: 8px;">
+                            <div class="progress-bar bg-success" style="width: {{ (bill.total_paid / bill.total_amount * 100) if bill.total_amount > 0 else 0 }}%"></div>
+                        </div>
+                        <small class="text-muted">{{ "%.1f"|format((bill.total_paid / bill.total_amount * 100) if bill.total_amount > 0 else 0) }}% paid</small>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Water Bill Analysis by Billing Cycle -->
+{% if water_bill_analysis %}
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-chart-pie text-info"></i> Water Bill Analysis by Billing Cycle</h5>
+        <div>
+            <button class="btn btn-sm btn-outline-primary" onclick="exportWaterBillAnalysis()">
+                <i class="fas fa-file-excel"></i> Export Analysis
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info mb-4">
+            <h6><i class="fas fa-info-circle"></i> Understanding Water Bill Components</h6>
+            <div class="row">
+                <div class="col-md-3">
+                    <strong>Water Charges:</strong><br>
+                    <small>₹70 per unit consumed</small>
+                </div>
+                <div class="col-md-3">
+                    <strong>Maintenance (25%):</strong><br>
+                    <small>25% of water charges</small>
+                </div>
+                <div class="col-md-3">
+                    <strong>Waste Water:</strong><br>
+                    <small>Equally distributed</small>
+                </div>
+                <div class="col-md-3">
+                    <strong>Repair Charges:</strong><br>
+                    <small>Equally distributed</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-striped" id="waterBillAnalysisTable">
+                <thead>
+                    <tr>
+                        <th onclick="sortTable('waterBillAnalysisTable', 0)" style="cursor: pointer;">
+                            Billing Cycle <i class="fas fa-sort text-muted"></i>
+                        </th>
+                        <th>Houses</th>
+                        <th>Total Consumption</th>
+                        <th onclick="sortTable('waterBillAnalysisTable', 3)" style="cursor: pointer;">
+                            Total Bill Amount <i class="fas fa-sort text-muted"></i>
+                        </th>
+                        <th>Water Charges</th>
+                        <th>Maintenance (25%)</th>
+                        <th>Waste Water</th>
+                        <th>Repair Charges</th>
+                        <th>Waste Water %</th>
+                        <th>Repair %</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for analysis in water_bill_analysis %}
+                    <tr>
+                        <td><strong>{{ analysis.billing_cycle }}</strong></td>
+                        <td>
+                            <span class="badge bg-secondary">{{ analysis.house_count }} houses</span>
+                        </td>
+                        <td>
+                            <strong>{{ "%.1f"|format(analysis.total_consumption or 0) }}</strong> units
+                            <br><small class="text-muted">{{ "%.1f"|format((analysis.total_consumption or 0) / (analysis.house_count or 1)) }} avg/house</small>
+                        </td>
+                        <td>
+                            <strong class="text-primary">₹{{ "%.2f"|format(analysis.total_bill_amount) }}</strong>
+                            <br><small class="text-muted">₹{{ "%.0f"|format(analysis.total_bill_amount / (analysis.house_count or 1)) }} avg/house</small>
+                        </td>
+                        <td>
+                            ₹{{ "%.2f"|format(analysis.total_water_charge) }}
+                            <div class="progress mt-1" style="height: 4px;">
+                                <div class="progress-bar bg-primary" style="width: {{ analysis.water_charge_percentage }}%"></div>
+                            </div>
+                            <small class="text-muted">{{ analysis.water_charge_percentage }}%</small>
+                        </td>
+                        <td>
+                            ₹{{ "%.2f"|format(analysis.total_water_maintenance) }}
+                            <div class="progress mt-1" style="height: 4px;">
+                                <div class="progress-bar bg-success" style="width: {{ analysis.water_maintenance_percentage }}%"></div>
+                            </div>
+                            <small class="text-muted">{{ analysis.water_maintenance_percentage }}%</small>
+                        </td>
+                        <td>
+                            ₹{{ "%.2f"|format(analysis.total_waste_water_charge) }}
+                            <div class="progress mt-1" style="height: 4px;">
+                                <div class="progress-bar bg-warning" style="width: {{ analysis.waste_water_percentage }}%"></div>
+                            </div>
+                            <small class="text-muted">{{ analysis.waste_water_percentage }}%</small>
+                        </td>
+                        <td>
+                            ₹{{ "%.2f"|format(analysis.total_repair_charge) }}
+                            <div class="progress mt-1" style="height: 4px;">
+                                <div class="progress-bar bg-danger" style="width: {{ analysis.repair_charge_percentage }}%"></div>
+                            </div>
+                            <small class="text-muted">{{ analysis.repair_charge_percentage }}%</small>
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ 'danger' if analysis.waste_water_percentage > 15 else 'warning' if analysis.waste_water_percentage > 10 else 'success' }}">
+                                {{ analysis.waste_water_percentage }}%
+                            </span>
+                            <br><small class="text-muted">₹{{ "%.0f"|format(analysis.avg_waste_water_per_house) }}/house</small>
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ 'danger' if analysis.repair_charge_percentage > 10 else 'warning' if analysis.repair_charge_percentage > 5 else 'success' }}">
+                                {{ analysis.repair_charge_percentage }}%
+                            </span>
+                            <br><small class="text-muted">₹{{ "%.0f"|format(analysis.avg_repair_charge_per_house) }}/house</small>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <th>AVERAGES</th>
+                        <th>{{ "%.0f"|format(water_bill_analysis|sum(attribute='house_count') / (water_bill_analysis|length or 1)) }}</th>
+                        <th>{{ "%.1f"|format(water_bill_analysis|sum(attribute='total_consumption') / (water_bill_analysis|length or 1)) }} units</th>
+                        <th><strong>₹{{ "%.0f"|format(water_bill_analysis|sum(attribute='total_bill_amount') / (water_bill_analysis|length or 1)) }}</strong></th>
+                        <th>{{ "%.1f"|format(water_bill_analysis|sum(attribute='water_charge_percentage') / (water_bill_analysis|length or 1)) }}%</th>
+                        <th>{{ "%.1f"|format(water_bill_analysis|sum(attribute='water_maintenance_percentage') / (water_bill_analysis|length or 1)) }}%</th>
+                        <th>-</th>
+                        <th>-</th>
+                        <th><strong class="text-warning">{{ "%.1f"|format(water_bill_analysis|sum(attribute='waste_water_percentage') / (water_bill_analysis|length or 1)) }}%</strong></th>
+                        <th><strong class="text-danger">{{ "%.1f"|format(water_bill_analysis|sum(attribute='repair_charge_percentage') / (water_bill_analysis|length or 1)) }}%</strong></th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        
+        <!-- Summary Cards -->
+        <div class="row mt-4">
+            <div class="col-md-3">
+                <div class="card border-primary">
+                    <div class="card-body text-center">
+                        <h4 class="text-primary">{{ "%.1f"|format(water_bill_analysis|sum(attribute='water_charge_percentage') / (water_bill_analysis|length or 1)) }}%</h4>
+                        <p class="mb-0"><strong>Average Water Charges</strong></p>
+                        <small class="text-muted">Main consumption cost</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-success">
+                    <div class="card-body text-center">
+                        <h4 class="text-success">{{ "%.1f"|format(water_bill_analysis|sum(attribute='water_maintenance_percentage') / (water_bill_analysis|length or 1)) }}%</h4>
+                        <p class="mb-0"><strong>Average Maintenance</strong></p>
+                        <small class="text-muted">25% of water charges</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-warning">
+                    <div class="card-body text-center">
+                        <h4 class="text-warning">{{ "%.1f"|format(water_bill_analysis|sum(attribute='waste_water_percentage') / (water_bill_analysis|length or 1)) }}%</h4>
+                        <p class="mb-0"><strong>Average Waste Water</strong></p>
+                        <small class="text-muted">Shared equally</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-danger">
+                    <div class="card-body text-center">
+                        <h4 class="text-danger">{{ "%.1f"|format(water_bill_analysis|sum(attribute='repair_charge_percentage') / (water_bill_analysis|length or 1)) }}%</h4>
+                        <p class="mb-0"><strong>Average Repair</strong></p>
+                        <small class="text-muted">Shared equally</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Insights Section -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="alert alert-light">
+                    <h6><i class="fas fa-lightbulb"></i> Key Insights</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul class="mb-0">
+                                <li><strong>Water Usage:</strong> Primary cost component (typically 60-70%)</li>
+                                <li><strong>Maintenance:</strong> Fixed 25% of water charges</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul class="mb-0">
+                                <li><strong>Waste Water:</strong> Varies by community charges</li>
+                                <li><strong>Repairs:</strong> Depends on maintenance needs</li>
+                            </ul>
+                        </div>
+                    </div>
+                    {% if water_bill_analysis %}
+                    {% set avg_waste_water = water_bill_analysis|sum(attribute='waste_water_percentage') / (water_bill_analysis|length or 1) %}
+                    {% set avg_repair = water_bill_analysis|sum(attribute='repair_charge_percentage') / (water_bill_analysis|length or 1) %}
+                    <hr>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <strong>Analysis:</strong>
+                            {% if avg_waste_water > 15 %}
+                                <span class="text-danger">High waste water charges detected ({{ "%.1f"|format(avg_waste_water) }}%). Consider reviewing waste water management.</span>
+                            {% elif avg_waste_water > 10 %}
+                                <span class="text-warning">Moderate waste water charges ({{ "%.1f"|format(avg_waste_water) }}%).</span>
+                            {% else %}
+                                <span class="text-success">Waste water charges are reasonable ({{ "%.1f"|format(avg_waste_water) }}%).</span>
+                            {% endif %}
+                            
+                            {% if avg_repair > 10 %}
+                                <span class="text-danger">High repair charges ({{ "%.1f"|format(avg_repair) }}%). Consider preventive maintenance.</span>
+                            {% elif avg_repair > 5 %}
+                                <span class="text-warning">Moderate repair charges ({{ "%.1f"|format(avg_repair) }}%).</span>
+                            {% else %}
+                                <span class="text-success">Repair charges are low ({{ "%.1f"|format(avg_repair) }}%).</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-chart-pie text-info"></i> Water Bill Analysis</h5>
+    </div>
+    <div class="card-body">
+        <div class="text-center py-4">
+            <i class="fas fa-chart-pie fa-3x text-muted mb-3"></i>
+            <h5>No Water Bill Data</h5>
+            <p class="text-muted">No water bills have been generated yet to analyze.</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Payment Methods -->
+{% if payment_methods %}
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-credit-card text-warning"></i> Payment Method Analysis</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            {% for method in payment_methods %}
+            <div class="col-md-4 mb-3">
+                <div class="text-center p-3 border rounded">
+                    <i class="fas fa-{{ 'money-bill-wave' if method.method == 'cash' else 'university' if method.method == 'bank_transfer' else 'mobile-alt' if method.method == 'upi' else 'credit-card' }} fa-2x text-primary mb-2"></i>
+                    <h4>{{ method.count }}</h4>
+                    <p class="mb-1"><strong>{{ method.method.replace('_', ' ').title() }}</strong></p>
+                    <small class="text-muted">₹{{ "%.2f"|format(method.total_amount) }}</small>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<!-- Resident Reports Section -->
+
+{% if no_house %}
+<div class="alert alert-warning">
+    <div class="row align-items-center">
+        <div class="col-md-2 text-center">
+            <i class="fas fa-exclamation-triangle fa-3x"></i>
+        </div>
+        <div class="col-md-10">
+            <h5><i class="fas fa-home"></i> No House Assigned</h5>
+            <p class="mb-2">Your account is not linked to any house. Please contact the administrator to assign your house.</p>
+            <button class="btn btn-warning btn-sm" onclick="contactAdmin()">
+                <i class="fas fa-phone"></i> Contact Admin
+            </button>
+        </div>
+    </div>
+</div>
+{% else %}
+
+<!-- Resident Quick Stats -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card warning">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="mb-0 counter" data-target="{{ "%.0f"|format(outstanding_dues[0].total_outstanding if outstanding_dues else 0) }}">0</h3>
+                    <p class="mb-0">Outstanding</p>
+                    <small class="opacity-75">
+                        <i class="fas fa-exclamation-triangle"></i> Total due
+                    </small>
+                </div>
+                <i class="fas fa-wallet fa-2x opacity-75"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card success">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="mb-0 counter" data-target="{{ "%.0f"|format(payment_history|sum(attribute='total_paid') or 0) }}">0</h3>
+                    <p class="mb-0">Total Paid</p>
+                    <small class="opacity-75">
+                        <i class="fas fa-check-circle"></i> All payments
+                    </small>
+                </div>
+                <i class="fas fa-credit-card fa-2x opacity-75"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card info">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="mb-0 counter" data-target="{{ "%.0f"|format(water_consumption|sum(attribute='consumption') or 0) }}">0</h3>
+                    <p class="mb-0">Water Used</p>
+                    <small class="opacity-75">
+                        <i class="fas fa-tint"></i> Total units
+                    </small>
+                </div>
+                <i class="fas fa-tint fa-2x opacity-75"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="mb-0 counter" data-target="{{ bill_summary|sum(attribute='bill_count') or 0 }}">0</h3>
+                    <p class="mb-0">Bills</p>
+                    <small class="opacity-75">
+                        <i class="fas fa-file-invoice"></i> Generated
+                    </small>
+                </div>
+                <i class="fas fa-file-invoice fa-2x opacity-75"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Personal Outstanding Dues -->
+{% if outstanding_dues %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-wallet text-warning"></i> My Outstanding Dues</h5>
+    </div>
+    <div class="card-body">
+        {% for due in outstanding_dues %}
+        <div class="row text-center">
+            <div class="col-md-3">
+                <div class="p-3">
+                    <h6>House Information</h6>
+                    <h4 class="text-primary">{{ due.house_number }}</h4>
+                    <p class="text-muted mb-0">{{ due.owner_name }}</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="p-3">
+                    <h6>Maintenance Due</h6>
+                    <h4 class="{% if due.maintenance_outstanding > 0 %}text-danger{% else %}text-success{% endif %}">
+                        ₹{{ "%.2f"|format(due.maintenance_outstanding) }}
+                    </h4>
+                    {% if due.maintenance_outstanding > 0 %}
+                        <small class="text-danger">Pending</small>
+                    {% else %}
+                        <small class="text-success">Paid Up</small>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="p-3">
+                    <h6>Water Bills Due</h6>
+                    <h4 class="{% if due.water_outstanding > 0 %}text-danger{% else %}text-success{% endif %}">
+                        ₹{{ "%.2f"|format(due.water_outstanding) }}
+                    </h4>
+                    {% if due.water_outstanding > 0 %}
+                        <small class="text-danger">Pending</small>
+                    {% else %}
+                        <small class="text-success">Paid Up</small>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="p-3">
+                    <h6>Total Outstanding</h6>
+                    <h3 class="{% if due.total_outstanding > 0 %}text-danger{% else %}text-success{% endif %}">
+                        ₹{{ "%.2f"|format(due.total_outstanding) }}
+                    </h3>
+                    {% if due.total_outstanding > 0 %}
+                        <button class="btn btn-danger btn-sm mt-2" onclick="showPaymentOptions()">
+                            <i class="fas fa-credit-card"></i> Pay Now
+                        </button>
+                    {% else %}
+                        <span class="badge bg-success mt-2">All Paid Up!</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Personal Payment History -->
+{% if payment_history %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-history text-success"></i> My Payment History</h5>
     </div>
     <div class="card-body">
         <div class="table-responsive">
@@ -61,48 +818,480 @@
                 <thead>
                     <tr>
                         <th>Month</th>
-                        <th>Total Collected</th>
+                        <th>Number of Payments</th>
+                        <th>Total Amount Paid</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for collection in monthly_collections %}
+                    {% for payment in payment_history %}
                     <tr>
-                        <td>{{ collection.month }}</td>
-                        <td>₹{{ "%.2f"|format(collection.total_collected) }}</td>
+                        <td><strong>{{ payment.month }}</strong></td>
+                        <td><span class="badge bg-info">{{ payment.payment_count }}</span></td>
+                        <td><strong class="text-success">₹{{ "%.2f"|format(payment.total_paid) }}</strong></td>
                     </tr>
                     {% endfor %}
                 </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <th>TOTAL</th>
+                        <th>{{ payment_history|sum(attribute='payment_count') }} payments</th>
+                        <th><strong class="text-success">₹{{ "%.2f"|format(payment_history|sum(attribute='total_paid')) }}</strong></th>
+                    </tr>
+                </tfoot>
             </table>
         </div>
     </div>
 </div>
+{% endif %}
 
-<!-- Water Consumption Report -->
-<div class="card">
+<!-- Personal Water Consumption -->
+{% if water_consumption %}
+<div class="card mb-4">
     <div class="card-header">
-        <h5 class="mb-0"><i class="fas fa-tint"></i> Recent Water Consumption</h5>
+        <h5 class="mb-0"><i class="fas fa-tint text-info"></i> My Water Consumption</h5>
     </div>
     <div class="card-body">
         <div class="table-responsive">
             <table class="table">
                 <thead>
                     <tr>
-                        <th>House Number</th>
-                        <th>Consumption</th>
                         <th>Reading Date</th>
+                        <th>Consumption (Units)</th>
+                        <th>Estimated Cost</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for consumption in water_consumption %}
                     <tr>
-                        <td><strong>{{ consumption.house_number }}</strong></td>
-                        <td>{{ "%.2f"|format(consumption.consumption) }} units</td>
                         <td>{{ consumption.reading_date }}</td>
+                        <td>
+                            <span class="badge bg-{{ 'danger' if (consumption.consumption or 0) > 30 else 'warning' if (consumption.consumption or 0) > 15 else 'success' }}">
+                                {{ "%.2f"|format(consumption.consumption or 0) }} units
+                            </span>
+                        </td>
+                        <td>₹{{ "%.2f"|format((consumption.consumption or 0) * 70) }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <th>TOTAL</th>
+                        <th><strong>{{ "%.2f"|format(water_consumption|sum(attribute='consumption') or 0) }} units</strong></th>
+                        <th><strong class="text-info">₹{{ "%.2f"|format((water_consumption|sum(attribute='consumption') or 0) * 70) }}</strong></th>
+                    </tr>
+                </tfoot>
             </table>
         </div>
     </div>
 </div>
+{% endif %}
+
+<!-- Personal Bill Summary -->
+{% if bill_summary %}
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-file-invoice-dollar text-primary"></i> My Bill Summary</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            {% for bill in bill_summary %}
+            <div class="col-md-6 mb-3">
+                <div class="card border-{{ 'success' if bill.bill_type == 'maintenance' else 'info' }}">
+                    <div class="card-header bg-{{ 'success' if bill.bill_type == 'maintenance' else 'info' }} text-white">
+                        <h6 class="mb-0">
+                            <i class="fas fa-{{ 'tools' if bill.bill_type == 'maintenance' else 'tint' }}"></i>
+                            {{ bill.bill_type.title() }} Bills
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <h4>{{ bill.bill_count }}</h4>
+                                <small>Bills Received</small>
+                            </div>
+                            <div class="col-6">
+                                <h4>₹{{ "%.0f"|format(bill.total_amount) }}</h4>
+                                <small>Total Billed</small>
+                            </div>
+                        </div>
+                        <hr>
+                        <p class="mb-1"><strong>Amount Paid:</strong> <span class="text-success">₹{{ "%.2f"|format(bill.total_paid) }}</span></p>
+                        <p class="mb-0"><strong>Outstanding:</strong> <span class="text-danger">₹{{ "%.2f"|format(bill.total_outstanding) }}</span></p>
+                        <div class="progress mt-2" style="height: 8px;">
+                            <div class="progress-bar bg-success" style="width: {{ (bill.total_paid / bill.total_amount * 100) if bill.total_amount > 0 else 0 }}%"></div>
+                        </div>
+                        <small class="text-muted">{{ "%.1f"|format((bill.total_paid / bill.total_amount * 100) if bill.total_amount > 0 else 0) }}% paid</small>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Counter animation for statistics
+function animateCounters() {
+    const counters = document.querySelectorAll('.counter');
+    
+    counters.forEach(counter => {
+        const target = parseInt(counter.getAttribute('data-target')) || 0;
+        const increment = Math.max(1, Math.floor(target / 20));
+        let current = 0;
+        
+        const timer = setInterval(() => {
+            current += increment;
+            if (current >= target) {
+                counter.textContent = target;
+                clearInterval(timer);
+            } else {
+                counter.textContent = current;
+            }
+        }, 50);
+    });
+}
+
+// Enhanced table sorting functionality
+function sortTable(tableId, columnIndex) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    
+    const tbody = table.getElementsByTagName('tbody')[0];
+    const rows = Array.from(tbody.getElementsByTagName('tr'));
+    
+    const currentSort = table.getAttribute('data-sort-column');
+    const currentDirection = table.getAttribute('data-sort-direction') || 'asc';
+    const newDirection = (currentSort == columnIndex && currentDirection === 'asc') ? 'desc' : 'asc';
+    
+    rows.sort((a, b) => {
+        let aValue = a.cells[columnIndex].textContent.trim();
+        let bValue = b.cells[columnIndex].textContent.trim();
+        
+        // Handle currency values
+        if (aValue.includes('₹')) {
+            aValue = parseFloat(aValue.replace(/[₹,]/g, ''));
+            bValue = parseFloat(bValue.replace(/[₹,]/g, ''));
+        }
+        // Handle dates
+        else if (aValue.match(/\d{4}-\d{2}-\d{2}/)) {
+            aValue = new Date(aValue);
+            bValue = new Date(bValue);
+        }
+        // Handle numbers
+        else if (!isNaN(parseFloat(aValue))) {
+            aValue = parseFloat(aValue);
+            bValue = parseFloat(bValue);
+        }
+        // Handle text
+        else {
+            aValue = aValue.toLowerCase();
+            bValue = bValue.toLowerCase();
+        }
+        
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+            return newDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        } else if (aValue instanceof Date && bValue instanceof Date) {
+            return newDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        } else {
+            if (newDirection === 'asc') {
+                return aValue.toString().localeCompare(bValue.toString());
+            } else {
+                return bValue.toString().localeCompare(aValue.toString());
+            }
+        }
+    });
+    
+    rows.forEach(row => tbody.appendChild(row));
+    
+    table.setAttribute('data-sort-column', columnIndex);
+    table.setAttribute('data-sort-direction', newDirection);
+    
+    // Update sort icons
+    const headers = table.querySelectorAll('th i.fa-sort, th i.fa-sort-up, th i.fa-sort-down');
+    headers.forEach(icon => {
+        icon.className = 'fas fa-sort text-muted';
+    });
+    
+    const currentHeader = table.querySelectorAll('th')[columnIndex].querySelector('i');
+    if (currentHeader) {
+        currentHeader.className = `fas fa-sort-${newDirection === 'asc' ? 'up' : 'down'} text-primary`;
+    }
+}
+
+// Export functionality
+function exportReports() {
+    showLoading('Preparing reports export...');
+    
+    // Create a comprehensive CSV export
+    let csvContent = '';
+    let filename = 'community_reports';
+    
+    {% if user_role == 'admin' %}
+    // Export outstanding dues for admin
+    const outstandingTable = document.getElementById('outstandingDuesTable');
+    if (outstandingTable) {
+        csvContent = tableToCSV(outstandingTable, 'Outstanding Dues Report');
+        filename = 'outstanding_dues_report';
+    }
+    {% else %}
+    // Export personal data for residents
+    csvContent = createPersonalReport();
+    filename = 'my_account_report';
+    {% endif %}
+    
+    if (csvContent) {
+        downloadCSV(csvContent, `${filename}_${new Date().toISOString().split('T')[0]}.csv`);
+        
+        hideLoading();
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: 'Reports exported successfully!',
+            showConfirmButton: false,
+            timer: 3000
+        });
+    } else {
+        hideLoading();
+        Swal.fire('No Data', 'No data available to export.', 'info');
+    }
+}
+
+function exportOutstandingDues() {
+    const table = document.getElementById('outstandingDuesTable');
+    if (!table) {
+        Swal.fire('No Data', 'No outstanding dues data to export.', 'info');
+        return;
+    }
+    
+    showLoading('Exporting outstanding dues...');
+    
+    const csvContent = tableToCSV(table, 'Outstanding Dues Report');
+    downloadCSV(csvContent, `outstanding_dues_${new Date().toISOString().split('T')[0]}.csv`);
+    
+    hideLoading();
+    
+    Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: 'Outstanding dues exported successfully!',
+        showConfirmButton: false,
+        timer: 3000
+    });
+}
+
+// Helper function to convert table to CSV
+function tableToCSV(table, reportTitle) {
+    const data = [];
+    
+    // Add report title
+    data.push([reportTitle]);
+    data.push(['Generated on:', new Date().toLocaleDateString()]);
+    data.push([]); // Empty row
+    
+    // Get headers
+    const headers = [];
+    const headerRow = table.querySelector('thead tr');
+    for (let i = 0; i < headerRow.cells.length; i++) {
+        headers.push(headerRow.cells[i].textContent.replace(/\s+/g, ' ').trim());
+    }
+    data.push(headers);
+    
+    // Get data rows (exclude footer if present)
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        const rowData = [];
+        for (let i = 0; i < row.cells.length; i++) {
+            rowData.push(row.cells[i].textContent.replace(/\s+/g, ' ').trim());
+        }
+        data.push(rowData);
+    });
+    
+    // Add footer data if present
+    const footerRow = table.querySelector('tfoot tr');
+    if (footerRow) {
+        data.push([]); // Empty row
+        const footerData = [];
+        for (let i = 0; i < footerRow.cells.length; i++) {
+            footerData.push(footerRow.cells[i].textContent.replace(/\s+/g, ' ').trim());
+        }
+        data.push(footerData);
+    }
+    
+    // Convert to CSV
+    return data.map(row => 
+        row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+}
+
+// Helper function for resident personal report
+function createPersonalReport() {
+    const data = [];
+    
+    data.push(['Personal Account Report']);
+    data.push(['Generated on:', new Date().toLocaleDateString()]);
+    data.push([]);
+    
+    {% if outstanding_dues and outstanding_dues|length > 0 %}
+    data.push(['Outstanding Dues Summary']);
+    data.push(['House Number', 'Owner Name', 'Maintenance Outstanding', 'Water Outstanding', 'Total Outstanding']);
+    {% for due in outstanding_dues %}
+    data.push(['{{ due.house_number }}', '{{ due.owner_name }}', '₹{{ "%.2f"|format(due.maintenance_outstanding) }}', '₹{{ "%.2f"|format(due.water_outstanding) }}', '₹{{ "%.2f"|format(due.total_outstanding) }}']);
+    {% endfor %}
+    data.push([]);
+    {% endif %}
+    
+    {% if payment_history and payment_history|length > 0 %}
+    data.push(['Payment History']);
+    data.push(['Month', 'Number of Payments', 'Total Amount Paid']);
+    {% for payment in payment_history %}
+    data.push(['{{ payment.month }}', '{{ payment.payment_count }}', '₹{{ "%.2f"|format(payment.total_paid) }}']);
+    {% endfor %}
+    data.push(['TOTAL', '{{ payment_history|sum(attribute="payment_count") }}', '₹{{ "%.2f"|format(payment_history|sum(attribute="total_paid")) }}']);
+    data.push([]);
+    {% endif %}
+    
+    {% if water_consumption and water_consumption|length > 0 %}
+    data.push(['Water Consumption History']);
+    data.push(['Reading Date', 'Consumption (Units)', 'Estimated Cost']);
+    {% for consumption in water_consumption %}
+    data.push(['{{ consumption.reading_date }}', '{{ "%.2f"|format(consumption.consumption or 0) }}', '₹{{ "%.2f"|format((consumption.consumption or 0) * 70) }}']);
+    {% endfor %}
+    data.push(['TOTAL', '{{ "%.2f"|format(water_consumption|sum(attribute="consumption") or 0) }}', '₹{{ "%.2f"|format((water_consumption|sum(attribute="consumption") or 0) * 70) }}']);
+    {% endif %}
+    
+    return data.map(row => 
+        row.map(cell => `"${cell.toString().replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+}
+
+// Helper function to download CSV
+function downloadCSV(csvContent, filename) {
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Contact admin function for residents
+function contactAdmin() {
+    Swal.fire({
+        title: 'Contact Administrator',
+        html: `
+            <div class="text-start">
+                <p><strong><i class="fas fa-envelope"></i> Email:</strong> admin@community.com</p>
+                <p><strong><i class="fas fa-phone"></i> Phone:</strong> +91 98765 43210</p>
+                <p><strong><i class="fas fa-clock"></i> Office Hours:</strong> 9:00 AM - 6:00 PM</p>
+                <hr>
+                <p class="text-muted small">Please mention your name and request for house assignment when contacting.</p>
+            </div>
+        `,
+        icon: 'info',
+        confirmButtonText: 'Copy Email',
+        showCancelButton: true,
+        cancelButtonText: 'Close'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            copyToClipboard('admin@community.com', 'Admin email copied!');
+        }
+    });
+}
+
+// Payment options for residents
+function showPaymentOptions() {
+    Swal.fire({
+        title: 'Payment Options',
+        html: `
+            <div class="text-start">
+                <h6><i class="fas fa-credit-card"></i> Available Payment Methods:</h6>
+                <div class="list-group">
+                    <div class="list-group-item d-flex align-items-center">
+                        <i class="fas fa-university fa-2x text-primary me-3"></i>
+                        <div>
+                            <strong>Bank Transfer</strong><br>
+                            <small class="text-muted">Account: 1234567890 • IFSC: BANK001</small>
+                        </div>
+                    </div>
+                    <div class="list-group-item d-flex align-items-center">
+                        <i class="fas fa-mobile fa-2x text-success me-3"></i>
+                        <div>
+                            <strong>UPI Payment</strong><br>
+                            <small class="text-muted">UPI ID: community@paytm</small>
+                        </div>
+                    </div>
+                    <div class="list-group-item d-flex align-items-center">
+                        <i class="fas fa-money-bill fa-2x text-warning me-3"></i>
+                        <div>
+                            <strong>Cash Payment</strong><br>
+                            <small class="text-muted">Visit office during business hours</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `,
+        icon: 'info',
+        confirmButtonText: 'Copy Bank Details',
+        showCancelButton: true,
+        cancelButtonText: 'Close'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            copyToClipboard('Account: 1234567890, IFSC: BANK001', 'Bank details copied!');
+        }
+    });
+}
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    // Animate counters
+    setTimeout(animateCounters, 500);
+    
+    // Add hover effects to cards
+    const cards = document.querySelectorAll('.card');
+    cards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-2px)';
+            this.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+        });
+    });
+    
+    // Add transition effects
+    cards.forEach(card => {
+        card.style.transition = 'all 0.3s ease';
+    });
+});
+
+// Additional utility functions
+function printReport() {
+    window.print();
+}
+
+function refreshReports() {
+    showLoading('Refreshing reports...');
+    setTimeout(() => {
+        window.location.reload();
+    }, 1000);
+}
+
+// Handle window resize for responsive charts
+window.addEventListener('resize', function() {
+    // Add responsive handling if needed for any charts
+});
+</script>
 {% endblock %}

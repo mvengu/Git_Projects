@@ -1511,7 +1511,7 @@ def reports():
     report_type = request.args.get('report_type', 'summary')
     
     if session.get('user_role') == 'admin':
-        # Admin gets full community reports
+        # Admin Dashboard - Full Statistics
         
         # Get available years for dropdown
         years_query = '''
@@ -1524,13 +1524,6 @@ def reports():
             ) ORDER BY year DESC
         '''
         available_years = conn.execute(years_query).fetchall()
-        
-        # Year condition for filtering
-        year_condition = ""
-        year_params = []
-        if year_filter and year_filter != 'all':
-            year_condition = "AND strftime('%Y', date_field) = ?"
-            year_params = [str(year_filter)]
         
         # Outstanding dues report (always current, not year-filtered)
         outstanding_dues = conn.execute('''
@@ -1566,30 +1559,32 @@ def reports():
                 LIMIT 24
             ''').fetchall()
         
-        # Water consumption report (year-filtered)
+        # FIXED: Water consumption report (year-filtered)
         if year_filter and year_filter != 'all':
             water_consumption = conn.execute('''
                 SELECT h.house_number, 
-                       SUM(mr.consumption) as total_consumption,
-                       AVG(mr.consumption) as avg_consumption,
+                       COALESCE(SUM(mr.consumption), 0) as total_consumption,
+                       COALESCE(AVG(mr.consumption), 0) as avg_consumption,
                        COUNT(mr.id) as reading_count,
-                       MAX(mr.reading_date) as last_reading_date
-                FROM meter_readings mr
-                JOIN houses h ON mr.house_id = h.id
-                WHERE strftime('%Y', mr.reading_date) = ?
+                       MAX(mr.reading_date) as last_reading_date,
+                       COALESCE(mr.consumption, 0) as consumption
+                FROM houses h
+                LEFT JOIN meter_readings mr ON mr.house_id = h.id 
+                WHERE (mr.reading_date IS NULL OR strftime('%Y', mr.reading_date) = ?)
                 GROUP BY h.id, h.house_number
                 ORDER BY total_consumption DESC
             ''', (str(year_filter),)).fetchall()
         else:
             water_consumption = conn.execute('''
                 SELECT h.house_number, 
-                       SUM(mr.consumption) as total_consumption,
-                       AVG(mr.consumption) as avg_consumption,
+                       COALESCE(SUM(mr.consumption), 0) as total_consumption,
+                       COALESCE(AVG(mr.consumption), 0) as avg_consumption,
                        COUNT(mr.id) as reading_count,
-                       MAX(mr.reading_date) as last_reading_date
-                FROM meter_readings mr
-                JOIN houses h ON mr.house_id = h.id
-                WHERE mr.reading_date >= date('now', '-1 year')
+                       MAX(mr.reading_date) as last_reading_date,
+                       COALESCE(mr.consumption, 0) as consumption
+                FROM houses h
+                LEFT JOIN meter_readings mr ON mr.house_id = h.id 
+                WHERE (mr.reading_date IS NULL OR mr.reading_date >= date('now', '-1 year'))
                 GROUP BY h.id, h.house_number
                 ORDER BY total_consumption DESC
             ''').fetchall()
@@ -1637,6 +1632,90 @@ def reports():
                 GROUP BY payment_method
                 ORDER BY total_amount DESC
             ''').fetchall()
+
+        # Water Bill Analysis by Billing Cycle (Admin only)
+        if year_filter and year_filter != 'all':
+            water_bill_analysis = conn.execute('''
+                SELECT 
+                    b.billing_cycle,
+                    COUNT(*) as house_count,
+                    SUM(b.individual_water_charge) as total_water_charge,
+                    SUM(b.water_maintenance_25_percent) as total_water_maintenance,
+                    SUM(b.waste_water_charge) as total_waste_water_charge,
+                    SUM(b.repair_charge) as total_repair_charge,
+                    SUM(b.total_amount_due) as total_bill_amount,
+                    AVG(b.individual_water_charge) as avg_water_charge_per_house,
+                    AVG(b.waste_water_charge) as avg_waste_water_per_house,
+                    AVG(b.repair_charge) as avg_repair_charge_per_house,
+                    SUM(b.individual_water_consumption) as total_consumption,
+                    -- Calculate percentages
+                    CASE 
+                        WHEN SUM(b.total_amount_due) > 0 THEN 
+                            ROUND((SUM(b.waste_water_charge) * 100.0) / SUM(b.total_amount_due), 2)
+                        ELSE 0 
+                    END as waste_water_percentage,
+                    CASE 
+                        WHEN SUM(b.total_amount_due) > 0 THEN 
+                            ROUND((SUM(b.repair_charge) * 100.0) / SUM(b.total_amount_due), 2)
+                        ELSE 0 
+                    END as repair_charge_percentage,
+                    CASE 
+                        WHEN SUM(b.total_amount_due) > 0 THEN 
+                            ROUND((SUM(b.individual_water_charge) * 100.0) / SUM(b.total_amount_due), 2)
+                        ELSE 0 
+                    END as water_charge_percentage,
+                    CASE 
+                        WHEN SUM(b.total_amount_due) > 0 THEN 
+                            ROUND((SUM(b.water_maintenance_25_percent) * 100.0) / SUM(b.total_amount_due), 2)
+                        ELSE 0 
+                    END as water_maintenance_percentage
+                FROM bills b
+                WHERE b.bill_type = 'water' 
+                AND strftime('%Y', b.generation_date) = ?
+                GROUP BY b.billing_cycle
+                ORDER BY b.billing_cycle DESC
+            ''', (str(year_filter),)).fetchall()
+        else:
+            water_bill_analysis = conn.execute('''
+                SELECT 
+                    b.billing_cycle,
+                    COUNT(*) as house_count,
+                    SUM(b.individual_water_charge) as total_water_charge,
+                    SUM(b.water_maintenance_25_percent) as total_water_maintenance,
+                    SUM(b.waste_water_charge) as total_waste_water_charge,
+                    SUM(b.repair_charge) as total_repair_charge,
+                    SUM(b.total_amount_due) as total_bill_amount,
+                    AVG(b.individual_water_charge) as avg_water_charge_per_house,
+                    AVG(b.waste_water_charge) as avg_waste_water_per_house,
+                    AVG(b.repair_charge) as avg_repair_charge_per_house,
+                    SUM(b.individual_water_consumption) as total_consumption,
+                    -- Calculate percentages
+                    CASE 
+                        WHEN SUM(b.total_amount_due) > 0 THEN 
+                            ROUND((SUM(b.waste_water_charge) * 100.0) / SUM(b.total_amount_due), 2)
+                        ELSE 0 
+                    END as waste_water_percentage,
+                    CASE 
+                        WHEN SUM(b.total_amount_due) > 0 THEN 
+                            ROUND((SUM(b.repair_charge) * 100.0) / SUM(b.total_amount_due), 2)
+                        ELSE 0 
+                    END as repair_charge_percentage,
+                    CASE 
+                        WHEN SUM(b.total_amount_due) > 0 THEN 
+                            ROUND((SUM(b.individual_water_charge) * 100.0) / SUM(b.total_amount_due), 2)
+                        ELSE 0 
+                    END as water_charge_percentage,
+                    CASE 
+                        WHEN SUM(b.total_amount_due) > 0 THEN 
+                            ROUND((SUM(b.water_maintenance_25_percent) * 100.0) / SUM(b.total_amount_due), 2)
+                        ELSE 0 
+                    END as water_maintenance_percentage
+                FROM bills b
+                WHERE b.bill_type = 'water'
+                GROUP BY b.billing_cycle
+                ORDER BY b.billing_cycle DESC
+                LIMIT 12
+            ''').fetchall()
         
         conn.close()
         
@@ -1649,7 +1728,8 @@ def reports():
                              monthly_collections=monthly_collections,
                              water_consumption=water_consumption,
                              bill_summary=bill_summary,
-                             payment_methods=payment_methods)
+                             payment_methods=payment_methods,
+                             water_bill_analysis=water_bill_analysis)
     
     else:
         # Residents get personal reports only
@@ -1705,7 +1785,7 @@ def reports():
                 LIMIT 24
             ''', (user_house_id,)).fetchall()
         
-        # Personal water consumption (year-filtered)
+        # Personal water consumption (year-filtered) - FIXED
         if year_filter and year_filter != 'all':
             water_consumption = conn.execute('''
                 SELECT h.house_number, mr.consumption, mr.reading_date,
@@ -1761,6 +1841,8 @@ def reports():
                              payment_history=payment_history,
                              water_consumption=water_consumption,
                              bill_summary=bill_summary)
+
+
 
 @app.route('/profile/change_password', methods=['POST'])
 @login_required
