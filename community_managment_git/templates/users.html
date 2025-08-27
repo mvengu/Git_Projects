@@ -977,5 +977,17 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize filter
     filterUsers();
 });
+
+// Show loading overlay
+        function showLoading(message = 'Processing...') {
+            const overlay = document.getElementById('loadingOverlay');
+            const text = overlay.querySelector('p');
+            text.textContent = message;
+            overlay.style.display = 'flex';
+        }
+// Hide loading overlay
+        function hideLoading() {
+            document.getElementById('loadingOverlay').style.display = 'none';
+        }
 </script>
 {% endblock %}
