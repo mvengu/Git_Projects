@@ -1293,5 +1293,18 @@ function refreshReports() {
 window.addEventListener('resize', function() {
     // Add responsive handling if needed for any charts
 });
+
+// Show loading overlay
+function showLoading(message = 'Processing...') {
+    const overlay = document.getElementById('loadingOverlay');
+    const text = overlay.querySelector('p');
+    text.textContent = message;
+    overlay.style.display = 'flex';
+}
+// Hide loading overlay
+function hideLoading() {
+    document.getElementById('loadingOverlay').style.display = 'none';
+}
+
 </script>
 {% endblock %}
